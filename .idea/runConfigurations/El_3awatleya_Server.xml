@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="El-3awatleya Server" type="PhpBuiltInWebServerConfigurationType" factoryName="PHP Built-in Web Server">
+    <option name="documentRoot" value="$PROJECT_DIR$" />
+    <option name="host" value="localhost" />
+    <option name="port" value="63342" />
+    <option name="router" value="$PROJECT_DIR$/index.php" />
+    <option name="customWorkingDirectory" value="$PROJECT_DIR$" />
+    <option name="autoReload" value="false" />
+    <method v="2" />
+  </configuration>
+</component>

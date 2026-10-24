@@ -1,7 +1,6 @@
 <?php
 /**
- * العواطلية - Simple Router
- * Maps URL paths to view files
+ * العواطلية - Router (Upgraded for Controllers)
  */
 
 class Router
@@ -25,7 +24,7 @@ class Router
     }
 
     /**
-     * Resolve the current request to a route
+     * Resolve the current request
      */
     public function resolve()
     {
@@ -40,11 +39,21 @@ class Router
         if (isset($this->routes[$method][$path])) {
             $handler = $this->routes[$method][$path];
 
+            // Callable (closure)
             if (is_callable($handler)) {
                 return call_user_func($handler);
             }
 
-            // If handler is a string, treat as view path
+            // Array: [ControllerClass, method]
+            if (is_array($handler) && count($handler) === 2) {
+                $controllerClass = $handler[0];
+                $method = $handler[1];
+
+                $controller = new $controllerClass();
+                return $controller->$method();
+            }
+
+            // String: view path (backwards compat)
             if (is_string($handler)) {
                 return $this->renderView($handler);
             }
@@ -52,12 +61,7 @@ class Router
 
         // 404
         http_response_code(404);
-        echo '<div style="text-align:center;padding:80px;font-family:Cairo,sans-serif;direction:rtl;">';
-        echo '<h1 style="font-size:4rem;">404</h1>';
-        echo '<h2>404 - الصفحة مش موجودة</h2>';
-        echo '<p>الصفحة اللي بتدور عليها مش هنا</p>';
-        echo '<a href="/login" style="color:#c4712b;">ارجع للرئيسية</a>';
-        echo '</div>';
+        require __DIR__ . '/../app/views/errors/404.php';
     }
 
     /**

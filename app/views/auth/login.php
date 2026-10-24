@@ -31,6 +31,13 @@
                 <h1 class="login-title">العواطلية</h1>
                 <p class="login-subtitle">عاوز تاكل عيش؟ يلا نشوف الـ CV بتاعك</p>
 
+                <?php if (Session::hasFlash('error')): ?>
+                    <div class="alert alert-danger"><?= Session::flash('error') ?></div>
+                <?php endif; ?>
+                <?php if (Session::hasFlash('success')): ?>
+                    <div class="alert alert-success"><?= Session::flash('success') ?></div>
+                <?php endif; ?>
+
                 <form id="loginForm" action="/login" method="POST">
                     <div class="form-group">
                         <label for="email">البريد الإلكتروني</label>
@@ -63,7 +70,7 @@
                             <input type="checkbox" name="remember" id="remember">
                             فاكرني
                         </label>
-                        <a href="#">نسيت الباسورد؟</a>
+                        <a href="/forgot-password">نسيت الباسورد؟</a>
                     </div>
 
                     <button type="submit" class="btn btn-primary" id="loginBtn">
@@ -80,6 +87,6 @@
     </div>
 </div>
 
-<script src="/public/js/app.js"></script>
+<script src="/public/js/app.js?v=<?= time() ?>"></script>
 </body>
 </html>

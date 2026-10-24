@@ -17,12 +17,18 @@
             <img src="/public/images/logo.jpg" alt="العواطلية">
             <span>العواطلية</span>
         </a>
+        <div class="navbar-links">
+            <a href="/dashboard" class="nav-link active">لوحة التحكم</a>
+            <a href="/jobs" class="nav-link">الوظائف</a>
+            <a href="/my-applications" class="nav-link">طلباتي</a>
+            <a href="/enhancements" class="nav-link">تحسين الـ CV</a>
+        </div>
         <div class="navbar-actions">
-            <div class="user-pill">
-                <div class="user-avatar">أ</div>
-                <span>أحمد</span>
-            </div>
-            <a href="/login" class="btn btn-ghost btn-sm">خروج</a>
+            <a href="/settings" class="user-pill">
+                <div class="user-avatar"><?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?></div>
+                <span><?= htmlspecialchars(explode(' ', $user['FullName'] ?? 'مستخدم')[0]) ?></span>
+            </a>
+            <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
         </div>
     </nav>
 
@@ -31,26 +37,26 @@
         <div class="container">
 
             <div class="page-header">
-                <h1 class="page-title">أهلاً يا عاطل</h1>
+                <h1 class="page-title">أهلاً يا <?= htmlspecialchars(explode(' ', $user['FullName'] ?? 'عاطل')[0]) ?> 👋</h1>
                 <p class="page-subtitle">ارفع الـ CV بتاعك وقولنا عاوز تشتغل إيه، وسيبنا نقيّمك</p>
             </div>
 
             <!-- Stats Row -->
             <div class="stats-row">
                 <div class="stat-card">
-                    <div class="stat-icon">ملف</div>
-                    <div class="stat-value" id="totalScans">0</div>
-                    <div class="stat-label">مرات الفحص</div>
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-value"><?= $stats['total_applications'] ?? 0 ?></div>
+                    <div class="stat-label">طلبات التوظيف</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">نجمة</div>
-                    <div class="stat-value" id="avgScore">--</div>
-                    <div class="stat-label">متوسط التقييم</div>
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-value"><?= $stats['pending'] ?? 0 ?></div>
+                    <div class="stat-label">قيد المراجعة</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">رسم</div>
-                    <div class="stat-value" id="lastScore">--</div>
-                    <div class="stat-label">آخر تقييم</div>
+                    <div class="stat-icon">🎉</div>
+                    <div class="stat-value"><?= $stats['accepted'] ?? 0 ?></div>
+                    <div class="stat-label">طلبات مقبولة</div>
                 </div>
             </div>
 
@@ -62,16 +68,16 @@
                     <h2 class="card-title">ارفع الـ CV بتاعك</h2>
                     <p class="card-desc">ارفع ملف PDF أو Word وهنحلله ليك</p>
 
-                    <form id="cvForm">
+                    <form id="cvForm" action="/evaluation" method="POST" enctype="multipart/form-data">
                         <div class="upload-zone" id="uploadZone">
                             <input type="file" id="cvFile" name="cv" accept=".pdf,.doc,.docx">
-                            <span class="upload-icon">ملف</span>
+                            <span class="upload-icon">📄</span>
                             <h3>اسحب الملف هنا أو اضغط لاختياره</h3>
                             <p>PDF, DOC, DOCX — أقصى حجم 5MB</p>
                         </div>
 
                         <div class="file-info" id="fileInfo">
-                            <span>+</span>
+                            <span>✅</span>
                             <span id="fileName">filename.pdf</span>
                             <span id="fileSize" class="text-muted">2.3 MB</span>
                             <button type="button" class="remove-file" id="removeFile">x حذف</button>
@@ -105,13 +111,29 @@
                     </form>
                 </div>
 
-                <!-- Recent Scans (placeholder) -->
+                <!-- Browse Jobs Card -->
                 <div class="card">
-                    <h2 class="card-title">آخر عمليات الفحص</h2>
-                    <p class="card-desc">هنا هتلاقي تاريخ فحوصاتك السابقة</p>
-                    <div style="text-align: center; padding: 24px 0; color: var(--text-muted); font-size: 0.85rem;">
-                        <div style="font-size: 1.2rem; margin-bottom: 8px; color: var(--text-muted);">---</div>
-                        مفيش فحوصات لسه
+                    <h2 class="card-title">🔍 دوّر على شغل</h2>
+                    <p class="card-desc">تصفح الوظائف المتاحة وقدّم عليها</p>
+                    <div style="text-align: center; padding: 16px 0;">
+                        <a href="/jobs" class="btn btn-primary">تصفح الوظائف</a>
+                    </div>
+                    <div class="mini-job-list">
+                        <?php if (!empty($recentJobs)): ?>
+                            <?php foreach (array_slice($recentJobs, 0, 3) as $job): ?>
+                                <a href="/jobs/apply?id=<?= $job['JobID'] ?>" class="mini-job-item" style="text-decoration:none; color:inherit; display:flex;">
+                                    <span>🏢</span>
+                                    <div>
+                                        <strong><?= htmlspecialchars($job['Title']) ?></strong>
+                                        <p class="text-muted" style="font-size: 0.78rem;">
+                                            <?= htmlspecialchars($job['CompanyName'] ?? $job['EmployerName'] ?? 'شركة') ?> · <?= htmlspecialchars($job['City'] ?? 'عن بعد') ?>
+                                        </p>
+                                    </div>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <p class="text-muted text-center" style="font-size: 0.85rem; padding: 12px 0;">لا توجد وظائف معروضة حالياً</p>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -121,19 +143,19 @@
                     <p class="card-desc">عشان تاخد أحسن تقييم</p>
                     <ul style="list-style: none; padding: 0; font-size: 0.85rem; color: var(--text-secondary);">
                         <li style="padding: 8px 0; border-bottom: 1px solid var(--border-light);">
-                            - اكتب الـ skills بتاعتك بوضوح
+                            💡 اكتب الـ skills بتاعتك بوضوح
                         </li>
                         <li style="padding: 8px 0; border-bottom: 1px solid var(--border-light);">
-                            - حط مشاريع عملتها قبل كده
+                            💡 حط مشاريع عملتها قبل كده
                         </li>
                         <li style="padding: 8px 0; border-bottom: 1px solid var(--border-light);">
-                            - اكتب خبرتك بالسنين أو الشهور
+                            💡 اكتب خبرتك بالسنين أو الشهور
                         </li>
                         <li style="padding: 8px 0; border-bottom: 1px solid var(--border-light);">
-                            - حط links لـ GitHub أو Portfolio
+                            💡 حط links لـ GitHub أو Portfolio
                         </li>
                         <li style="padding: 8px 0;">
-                            - خلي التنسيق بسيط ومرتب
+                            💡 خلي التنسيق بسيط ومرتب
                         </li>
                     </ul>
                 </div>
@@ -151,6 +173,6 @@
     <div class="loading-text">بنحلل الـ CV بتاعك... استنى شوية</div>
 </div>
 
-<script src="/public/js/app.js"></script>
+<script src="/public/js/app.js?v=<?= time() ?>"></script>
 </body>
 </html>

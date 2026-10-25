@@ -1536,6 +1536,39 @@ a.user-pill.active-pill {
 
 .status-dot.active { background: var(--success); }
 .status-dot.banned { background: var(--danger); }
+.status-dot.pending { background: #eab308; }
+.status-dot.rejected { background: var(--danger); }
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 50px;
+    white-space: nowrap;
+}
+.status-badge-pending {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.status-badge-approved {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.status-badge-rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.status-badge-banned {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
 
 .role-badge {
     font-size: 0.75rem;
@@ -2221,3 +2254,58 @@ a.user-pill.active-pill {
         font-size: 1rem;
     }
 }
+
+/* ===================================
+   Job Timer & Countdown Badges
+   =================================== */
+.job-timer-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 0.82rem;
+}
+
+.timer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.timer-badge.active {
+    background: rgba(196, 113, 43, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(196, 113, 43, 0.25);
+}
+
+.timer-badge.expired {
+    background: rgba(168, 50, 50, 0.12);
+    color: var(--danger);
+    border: 1px solid rgba(168, 50, 50, 0.25);
+}
+
+.timer-badge.text-muted {
+    background: rgba(45, 36, 22, 0.05);
+    color: var(--text-muted);
+}
+
+.pending-review-row {
+    background: rgba(59, 130, 246, 0.05) !important;
+    border-right: 3px solid #2563eb !important;
+}
+
+.highlight-pulse {
+    animation: pulseBorder 0.6s ease-in-out;
+}
+
+@keyframes pulseBorder {
+    0% { outline: 2px solid transparent; }
+    50% { outline: 3px solid var(--accent); }
+    100% { outline: 2px solid transparent; }
+}
+
+

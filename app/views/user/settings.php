@@ -46,10 +46,24 @@
                 <h2 class="card-title">👤 البيانات الشخصية</h2>
                 <p class="card-desc">عدّل بياناتك الأساسية</p>
 
+                <?php if (!empty($pendingNameChange)): ?>
+                    <div class="alert alert-warning mb-3" style="display: flex; align-items: flex-start; gap: 12px; background: rgba(234, 179, 8, 0.12); border: 1.5px solid rgba(234, 179, 8, 0.35); border-radius: 10px; padding: 14px 16px;">
+                        <span style="font-size: 1.4rem;">⏳</span>
+                        <div>
+                            <strong style="color: #eab308; display: block; font-size: 0.95rem;">طلب تعديل الاسم قيد المراجعة من الإدارة</strong>
+                            <p style="margin: 4px 0 0; color: var(--text-muted); font-size: 0.85rem;">
+                                طلبت تغيير اسمك إلى: <strong style="color: var(--text-primary);"><?= htmlspecialchars($pendingNameChange['NewValue']) ?></strong>
+                                (بتاريخ: <?= date('d/m/Y H:i', strtotime($pendingNameChange['RequestedAt'])) ?>).
+                                سيتم تطبيق الاسم بمجرد مراجعة وموافقة الإدارة.
+                            </p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <form id="profileForm">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="profileName">الاسم</label>
+                            <label for="profileName">الاسم <small style="color: var(--text-muted); font-size: 0.75rem;">(يتطلب موافقة الإدارة عند التعديل)</small></label>
                             <input type="text" id="profileName" name="name" class="form-control" value="<?= htmlspecialchars($user['FullName'] ?? '') ?>" required>
                         </div>
                         <div class="form-group">

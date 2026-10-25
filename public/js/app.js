@@ -178,11 +178,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function handleFileSelect(file) {
-        var allowed = ['application/pdf', 'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        var ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+        var allowedExts = ['pdf', 'doc', 'docx'];
+        var allowedMimes = ['application/pdf', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/x-pdf', 'application/octet-stream'];
 
-        if (allowed.indexOf(file.type) === -1) {
-            alert('الملف لازم يكون PDF أو Word');
+        if (allowedExts.indexOf(ext) === -1 && allowedMimes.indexOf(file.type) === -1) {
+            alert('الملف لازم يكون PDF أو Word (.pdf, .doc, .docx)');
             clearFile();
             return;
         }
@@ -212,7 +215,11 @@ document.addEventListener('DOMContentLoaded', function () {
             var jobTitle = document.getElementById('jobTitle');
             analyzeBtn.disabled = !(hasFile && jobTitle && jobTitle.value !== '');
         }
-        if (submitApplicationBtn) submitApplicationBtn.disabled = !hasFile;
+        if (submitApplicationBtn) {
+            var coverInput = document.getElementById('coverLetter');
+            var hasCover = coverInput ? coverInput.value.trim().length > 0 : true;
+            submitApplicationBtn.disabled = !(hasFile && hasCover);
+        }
         if (requestEnhBtn) requestEnhBtn.disabled = !hasFile;
     }
 
@@ -224,6 +231,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var jobTitle = document.getElementById('jobTitle');
     if (jobTitle) jobTitle.addEventListener('change', updateButtons);
+
+    var coverLetterInput = document.getElementById('coverLetter');
+    if (coverLetterInput) {
+        coverLetterInput.addEventListener('input', function () {
+            var errBox = document.getElementById('applyError');
+            if (errBox) errBox.style.display = 'none';
+            updateButtons();
+        });
+    }
 
 
     // ===========================
@@ -366,6 +382,22 @@ document.addEventListener('DOMContentLoaded', function () {
     if (applyForm) {
         applyForm.addEventListener('submit', function (e) {
             e.preventDefault();
+
+            var coverInput = document.getElementById('coverLetter');
+            var coverVal = coverInput ? coverInput.value.trim() : '';
+            if (!coverVal) {
+                var errBox = document.getElementById('applyError');
+                var errText = document.getElementById('applyErrorText');
+                if (errBox && errText) {
+                    errText.textContent = 'لازم توضح ليه الوظيفة دي مناسبة ليك';
+                    errBox.style.display = 'flex';
+                } else {
+                    alert('لازم توضح ليه الوظيفة دي مناسبة ليك');
+                }
+                if (coverInput) coverInput.focus();
+                return;
+            }
+
             var btn = document.getElementById('submitApplicationBtn');
             if (btn) {
                 btn.innerHTML = '<span class="spinner"></span> جاري الإرسال...';
@@ -383,24 +415,48 @@ document.addEventListener('DOMContentLoaded', function () {
                 method: 'POST',
                 body: formData
             })
-            .then(function (res) { return res.json(); })
+            .then(function (res) {
+                return res.text().then(function (text) {
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('Server response:', text);
+                        throw new Error('فشل معالجة رد السيرفر');
+                    }
+                });
+            })
             .then(function (data) {
                 if (data.success) {
                     var modal = document.getElementById('successModal');
                     if (modal) modal.style.display = 'flex';
                 } else {
-                    alert(data.message || 'حدث خطأ');
+                    var errBox = document.getElementById('applyError');
+                    var errText = document.getElementById('applyErrorText');
+                    if (errBox && errText) {
+                        errText.textContent = data.message || 'حدث خطأ أثناء التقديم';
+                        errBox.style.display = 'flex';
+                    } else {
+                        alert(data.message || 'حدث خطأ');
+                    }
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = 'إرسال الطلب';
+                        btn.innerHTML = 'قدّم الطلب';
                     }
                 }
             })
-            .catch(function () {
-                alert('حدث خطأ في الاتصال بالسيرفر');
+            .catch(function (err) {
+                console.error('Apply error:', err);
+                var errBox = document.getElementById('applyError');
+                var errText = document.getElementById('applyErrorText');
+                if (errBox && errText) {
+                    errText.textContent = 'حدث خطأ في الاتصال بالسيرفر، برجاء المحاولة لاحقاً';
+                    errBox.style.display = 'flex';
+                } else {
+                    alert('حدث خطأ في الاتصال بالسيرفر');
+                }
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = 'إرسال الطلب';
+                    btn.innerHTML = 'قدّم الطلب';
                 }
             });
         });
@@ -412,8 +468,32 @@ document.addEventListener('DOMContentLoaded', function () {
     // ===========================
     var postJobForm = document.getElementById('postJobForm');
     if (postJobForm) {
+        var expiryInput = document.getElementById('expiryDate');
+        if (expiryInput) {
+            var nowStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            expiryInput.min = nowStr;
+        }
+
         postJobForm.addEventListener('submit', function (e) {
             e.preventDefault();
+
+            var expiryEl = document.getElementById('expiryDate');
+            if (expiryEl && expiryEl.value) {
+                var expDate = new Date(expiryEl.value);
+                if (expDate <= new Date()) {
+                    var errBox = document.getElementById('postJobError');
+                    var errText = document.getElementById('postJobErrorText');
+                    if (errBox && errText) {
+                        errText.textContent = 'تاريخ وساعة انتهاء التقديم لازم يكون في وقت مستقبلي وغير منتهي!';
+                        errBox.style.display = 'flex';
+                    } else {
+                        alert('تاريخ وساعة انتهاء التقديم لازم يكون في وقت مستقبلي وغير منتهي!');
+                    }
+                    expiryEl.focus();
+                    return;
+                }
+            }
+
             var btn = document.getElementById('publishJobBtn');
             if (btn) {
                 btn.innerHTML = '<span class="spinner"></span> جاري النشر...';
@@ -513,8 +593,34 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        var dtInput = document.getElementById('interviewDateTime');
+        if (dtInput) {
+            var nowStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            dtInput.min = nowStr;
+        }
+
         interviewForm.addEventListener('submit', function (e) {
             e.preventDefault();
+
+            var dtEl = document.getElementById('interviewDateTime');
+            var dtVal = dtEl ? dtEl.value : '';
+            if (!dtVal) {
+                var dEl = document.getElementById('interviewDate');
+                var tEl = document.getElementById('interviewTime');
+                if (dEl && tEl && dEl.value && tEl.value) {
+                    dtVal = dEl.value + 'T' + tEl.value;
+                }
+            }
+
+            if (dtVal) {
+                var ivDate = new Date(dtVal);
+                if (ivDate <= new Date()) {
+                    alert('موعد المقابلة يجب أن يكون في تاريخ وساعة مستقبلية ولا يمكن اختيار موعد قد مضى!');
+                    if (dtEl) dtEl.focus();
+                    return;
+                }
+            }
+
             var btn = document.getElementById('scheduleBtn');
             if (btn) {
                 btn.innerHTML = '<span class="spinner"></span> جاري الحفظ...';
@@ -547,6 +653,128 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+
+    // ===========================
+    // Job Offer Live Countdown Timers
+    // ===========================
+    // Job Countdown Timers & Dynamic Status Timing
+    // ===========================
+    function formatTimeLeft(diffMs) {
+        if (diffMs <= 0) return null;
+        var totalSeconds = Math.floor(diffMs / 1000);
+        var days = Math.floor(totalSeconds / 86400);
+        var hours = Math.floor((totalSeconds % 86400) / 3600);
+        var minutes = Math.floor((totalSeconds % 3600) / 60);
+        var seconds = totalSeconds % 60;
+
+        var parts = [];
+        if (days > 0) parts.push(days + ' يوم');
+        if (hours > 0) parts.push(hours + ' ساعة');
+        if (minutes > 0) parts.push(minutes + ' دقيقة');
+        if (days === 0 && hours === 0) {
+            parts.push(seconds + ' ثانية');
+        }
+
+        if (parts.length === 0) {
+            return seconds + ' ثانية';
+        }
+        return parts.join(' و ');
+    }
+
+    function initJobTimers() {
+        var timerEls = document.querySelectorAll('.job-countdown');
+        if (!timerEls || timerEls.length === 0) return;
+
+        function updateAllTimers() {
+            var now = new Date().getTime();
+            document.querySelectorAll('.job-countdown').forEach(function (el) {
+                var targetStr = el.getAttribute('data-expires');
+                if (!targetStr) return;
+                var target = new Date(targetStr).getTime();
+                var diff = target - now;
+
+                var textEl = el.querySelector('.countdown-text');
+                if (diff <= 0) {
+                    el.classList.remove('active');
+                    el.classList.add('expired');
+                    if (textEl) {
+                        textEl.textContent = 'انتهى التقديم';
+                    } else {
+                        el.textContent = '⛔ انتهى وقت التقديم';
+                    }
+
+                    // 1. If on Apply page: disable submit button
+                    var applyBtn = document.getElementById('submitApplicationBtn');
+                    if (applyBtn) {
+                        applyBtn.disabled = true;
+                        applyBtn.textContent = '⛔ انتهى وقت التقديم';
+                    }
+
+                    // 2. If on Public Jobs Listing (/jobs): smoothly fade out and hide the expired card
+                    var publicCard = el.closest('.job-card');
+                    if (publicCard && window.location.pathname.indexOf('/jobs') !== -1) {
+                        publicCard.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                        publicCard.style.opacity = '0';
+                        publicCard.style.transform = 'scale(0.96)';
+                        setTimeout(function () {
+                            if (publicCard) publicCard.style.display = 'none';
+                        }, 600);
+                    }
+
+                    // 3. If on Employer Dashboard: dynamically switch status pill & button to "إعادة فتح"
+                    var employerJob = el.closest('.employer-job-item');
+                    if (employerJob) {
+                        var statusPill = employerJob.querySelector('.job-status-pill');
+                        if (statusPill && statusPill.textContent !== '⛔ منتهية الصلاحية') {
+                            statusPill.style.background = 'rgba(239, 68, 68, 0.15)';
+                            statusPill.style.color = '#ef4444';
+                            statusPill.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                            statusPill.textContent = '⛔ منتهية الصلاحية';
+                        }
+
+                        var toggleBtn = employerJob.querySelector('.toggle-job-btn');
+                        if (toggleBtn && toggleBtn.getAttribute('data-expired') !== '1') {
+                            var jobIdMatch = employerJob.id.match(/\d+/);
+                            var jId = jobIdMatch ? jobIdMatch[0] : null;
+                            var jTitle = employerJob.querySelector('h4') ? employerJob.querySelector('h4').textContent.trim() : '';
+
+                            toggleBtn.setAttribute('data-active', '0');
+                            toggleBtn.setAttribute('data-expired', '1');
+                            toggleBtn.className = 'btn btn-primary btn-sm toggle-job-btn';
+                            toggleBtn.style.color = '';
+                            toggleBtn.style.borderColor = '';
+                            toggleBtn.innerHTML = '🔄 إعادة فتح التقديم';
+                            toggleBtn.title = 'تحديد موعد جديد وإعادة فتح التقديم';
+                            toggleBtn.onclick = function () {
+                                if (typeof openReopenModal === 'function') {
+                                    openReopenModal(jId, jTitle, '', this);
+                                }
+                            };
+                        }
+                    }
+                } else {
+                    el.classList.remove('expired');
+                    el.classList.add('active');
+                    var formatted = formatTimeLeft(diff);
+                    if (textEl) {
+                        textEl.textContent = formatted;
+                    } else {
+                        el.textContent = '⏳ متبقي: ' + formatted;
+                    }
+                }
+            });
+        }
+
+        updateAllTimers();
+        if (!window.__jobTimerInterval) {
+            window.__jobTimerInterval = setInterval(updateAllTimers, 1000);
+        }
+    }
+
+    window.formatTimeLeft = formatTimeLeft;
+    window.initJobTimers = initJobTimers;
+    initJobTimers();
 
 
     // ===========================
@@ -771,38 +999,76 @@ function banUser(userId, btn) {
     var modal = document.getElementById('banModal');
     if (modal) {
         modal.style.display = 'flex';
-        document.getElementById('confirmBanBtn').onclick = function () {
-            var reason = document.getElementById('banReason') ? document.getElementById('banReason').value : '';
-            var formData = new FormData();
-            formData.append('user_id', userId);
-            formData.append('reason', reason);
+        var reasonInput = document.getElementById('banReason');
+        if (reasonInput) reasonInput.value = '';
 
-            fetch('/admin/users/ban', {
-                method: 'POST',
-                body: formData
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    var row = btn.closest('tr');
-                    row.classList.add('banned-row');
-                    row.querySelector('.status-dot').className = 'status-dot banned';
-                    row.querySelector('.status-dot').nextSibling.textContent = ' محظور';
-                    btn.className = 'btn btn-success btn-sm';
-                    btn.textContent = '✅ إلغاء الحظر';
-                    btn.setAttribute('onclick', 'unbanUser(' + userId + ', this)');
+        var confirmBtn = document.getElementById('confirmBanBtn');
+        if (confirmBtn) {
+            confirmBtn.onclick = function () {
+                var reason = reasonInput ? reasonInput.value : '';
+                var origText = confirmBtn.innerHTML;
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<span class="spinner"></span> جاري الحظر...';
+
+                var formData = new FormData();
+                formData.append('user_id', userId);
+                formData.append('reason', reason);
+
+                fetch('/admin/users/ban', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = origText;
                     closeModal('banModal');
-                } else {
-                    alert(data.message || 'حدث خطأ');
-                }
-            })
-            .catch(function() { alert('تعذر الاتصال بالسيرفر'); });
-        };
+
+                    if (data.success) {
+                        var row = btn ? btn.closest('tr') : null;
+                        if (row) {
+                            row.classList.add('banned-row');
+                            row.setAttribute('data-status', 'banned');
+
+                            var badge = row.querySelector('.status-badge');
+                            if (badge) {
+                                badge.className = 'status-badge status-badge-banned';
+                                badge.textContent = '🚫 محظور';
+                            }
+                            var dot = row.querySelector('.status-dot');
+                            if (dot) {
+                                dot.className = 'status-dot banned';
+                                if (dot.nextSibling) dot.nextSibling.textContent = ' محظور';
+                            }
+                        }
+                        if (btn) {
+                            btn.className = 'btn btn-success btn-sm';
+                            btn.textContent = '✅ إلغاء الحظر';
+                            btn.setAttribute('onclick', 'unbanUser(' + userId + ', this)');
+                        }
+                    } else {
+                        alert(data.message || 'حدث خطأ أثناء حظر المستخدم');
+                    }
+                })
+                .catch(function(err) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = origText;
+                    console.error('Ban error:', err);
+                    alert('تعذر الاتصال بالسيرفر');
+                });
+            };
+        }
     }
 }
 
 function unbanUser(userId, btn) {
     if (confirm('متأكد عاوز تلغي الحظر؟')) {
+        var origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> جاري الإلغاء...';
+        }
+
         var formData = new FormData();
         formData.append('user_id', userId);
 
@@ -812,75 +1078,599 @@ function unbanUser(userId, btn) {
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+
             if (data.success) {
-                var row = btn.closest('tr');
-                row.classList.remove('banned-row');
-                row.querySelector('.status-dot').className = 'status-dot active';
-                row.querySelector('.status-dot').nextSibling.textContent = ' نشط';
-                btn.className = 'btn btn-danger btn-sm';
-                btn.textContent = '🚫 حظر';
-                btn.setAttribute('onclick', 'banUser(' + userId + ', this)');
+                var row = btn ? btn.closest('tr') : null;
+                if (row) {
+                    row.classList.remove('banned-row');
+                    row.setAttribute('data-status', 'approved');
+
+                    var badge = row.querySelector('.status-badge');
+                    if (badge) {
+                        badge.className = 'status-badge status-badge-approved';
+                        badge.textContent = '✅ معتمد ونشط';
+                    }
+                    var dot = row.querySelector('.status-dot');
+                    if (dot) {
+                        dot.className = 'status-dot active';
+                        if (dot.nextSibling) dot.nextSibling.textContent = ' نشط';
+                    }
+                }
+                if (btn) {
+                    btn.className = 'btn btn-danger btn-sm';
+                    btn.textContent = '🚫 حظر';
+                    btn.setAttribute('onclick', 'banUser(' + userId + ', this)');
+                }
             } else {
-                alert(data.message || 'حدث خطأ');
+                alert(data.message || 'حدث خطأ أثناء إلغاء الحظر');
             }
         })
-        .catch(function() { alert('تعذر الاتصال بالسيرفر'); });
+        .catch(function(err) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+            console.error('Unban error:', err);
+            alert('تعذر الاتصال بالسيرفر');
+        });
     }
 }
 
-function removeJob(jobId, btn) {
-    var modal = document.getElementById('removeJobModal');
+function approveUser(userId, btn) {
+    if (confirm('هل أنت متأكد من الموافقة على تفعيل هذا الحساب؟ سيتم إرسال بريد إلكتروني للمستخدم فوراً.')) {
+        var origText = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span> جاري التفعيل والإرسال...';
+        btn.disabled = true;
+
+        var formData = new FormData();
+        formData.append('user_id', userId);
+
+        fetch('/admin/users/approve', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert(data.message || 'حدث خطأ في الموافقة على الحساب');
+            }
+        })
+        .catch(function() {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            alert('تعذر الاتصال بالسيرفر');
+        });
+    }
+}
+
+function openDisapproveModal(userId, userName, userEmail) {
+    var modal = document.getElementById('disapproveModal');
     if (modal) {
-        modal.style.display = 'flex';
-        document.getElementById('confirmRemoveBtn').onclick = function () {
-            toggleJobAjax(jobId, btn, 'removeJobModal', false);
-        };
-    } else {
-        if (confirm('متأكد عاوز تعطل الوظيفة دي؟')) {
-            toggleJobAjax(jobId, btn, null, false);
+        document.getElementById('disapproveUserId').value = userId;
+        var desc = document.getElementById('disapproveUserDesc');
+        if (desc) {
+            desc.textContent = 'سيتم رفض حساب "' + userName + '" (' + (userEmail || '') + ') وإرسال بريد إلكتروني بالقرار.';
         }
+        var reason = document.getElementById('disapproveReason');
+        if (reason) reason.value = '';
+        modal.style.display = 'flex';
     }
 }
 
-function restoreJob(jobId, btn) {
-    if (confirm('متأكد عاوز تفعل الوظيفة دي تاني؟')) {
-        toggleJobAjax(jobId, btn, null, true);
-    }
-}
+function confirmDisapprove() {
+    var userId = document.getElementById('disapproveUserId').value;
+    var reason = document.getElementById('disapproveReason') ? document.getElementById('disapproveReason').value : '';
+    var btn = document.getElementById('confirmDisapproveBtn');
 
-function toggleJobAjax(jobId, btn, modalId, isRestoring) {
+    if (!userId) return;
+
+    var origText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span> جاري الرفض وإرسال الإيميل...';
+    btn.disabled = true;
+
     var formData = new FormData();
-    formData.append('job_id', jobId);
+    formData.append('user_id', userId);
+    formData.append('reason', reason);
 
-    fetch('/admin/jobs/toggle', {
+    fetch('/admin/users/disapprove', {
         method: 'POST',
         body: formData
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        closeModal('disapproveModal');
         if (data.success) {
-            var row = btn.closest('tr');
-            if (isRestoring) {
-                row.classList.remove('removed-row');
-                row.querySelector('.status-dot').className = 'status-dot active';
-                row.querySelector('.status-dot').nextSibling.textContent = ' نشط';
-                btn.className = 'btn btn-danger btn-sm';
-                btn.textContent = '🗑️ تعطيل';
-                btn.setAttribute('onclick', 'removeJob(' + jobId + ', this)');
-            } else {
-                row.classList.add('removed-row');
-                row.querySelector('.status-dot').className = 'status-dot banned';
-                row.querySelector('.status-dot').nextSibling.textContent = ' معطل';
-                btn.className = 'btn btn-success btn-sm';
-                btn.textContent = '♻️ تفعيل';
-                btn.setAttribute('onclick', 'restoreJob(' + jobId + ', this)');
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert(data.message || 'حدث خطأ أثناء رفض الحساب');
+        }
+    })
+    .catch(function() {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+function approveProfileRequest(requestId, btn) {
+    if (!confirm('هل أنت متأكد من قبول تعديل البيانات وتحديث الحساب فوراً؟ سيتم إرسال بريد إلكتروني للمستخدم.')) {
+        return;
+    }
+    var origText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span> جاري القبول...';
+    btn.disabled = true;
+
+    var formData = new FormData();
+    formData.append('request_id', requestId);
+
+    fetch('/admin/profile-requests/approve', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        if (data.success) {
+            alert(data.message);
+            var row = document.getElementById('profile-req-row-' + requestId);
+            if (row) row.remove();
+            window.location.reload();
+        } else {
+            alert(data.message || 'حدث خطأ أثناء معالجة الطلب');
+        }
+    })
+    .catch(function() {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+function rejectProfileRequest(requestId, btn) {
+    var reason = prompt('هل أنت متأكد من رفض طلب التعديل؟ يمكنك كتابة سبب الرفض (اختياري) لإرساله للمستخدم:');
+    if (reason === null) return;
+
+    var origText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span> جاري الرفض...';
+    btn.disabled = true;
+
+    var formData = new FormData();
+    formData.append('request_id', requestId);
+    formData.append('reason', reason);
+
+    fetch('/admin/profile-requests/reject', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        if (data.success) {
+            alert(data.message);
+            var row = document.getElementById('profile-req-row-' + requestId);
+            if (row) row.remove();
+            window.location.reload();
+        } else {
+            alert(data.message || 'حدث خطأ أثناء رفض الطلب');
+        }
+    })
+    .catch(function() {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+
+function openAdminActivateModal(jobId, jobTitle, requestedExpiry, btn) {
+    var modal = document.getElementById('adminActivateJobModal');
+    if (!modal) {
+        if (confirm('تأكيد تفعيل وظيفة "' + (jobTitle || '#' + jobId) + '"؟')) {
+            submitAdminDirectActivate(jobId, requestedExpiry, btn);
+        }
+        return;
+    }
+    var idInput = document.getElementById('adminActivateTargetId');
+    if (idInput) idInput.value = jobId;
+    var titleEl = document.getElementById('adminActivateTargetTitle');
+    if (titleEl) titleEl.textContent = 'الوظيفة: ' + (jobTitle || '#' + jobId);
+
+    var expiryInput = document.getElementById('adminActivateExpiryInput');
+    if (expiryInput) {
+        if (requestedExpiry) {
+            expiryInput.value = requestedExpiry;
+        } else {
+            // Default 7 days from now
+            var d = new Date();
+            d.setDate(d.getDate() + 7);
+            var yr = d.getFullYear();
+            var mo = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            var hr = String(d.getHours()).padStart(2, '0');
+            var mn = String(d.getMinutes()).padStart(2, '0');
+            expiryInput.value = yr + '-' + mo + '-' + day + 'T' + hr + ':' + mn;
+        }
+    }
+    modal.style.display = 'flex';
+}
+
+function closeAdminActivateModal() {
+    var modal = document.getElementById('adminActivateJobModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function setAdminActivateQuickDuration(amount, unit) {
+    var now = new Date();
+    if (unit === 'minutes') {
+        now.setMinutes(now.getMinutes() + amount);
+    } else if (unit === 'hours') {
+        now.setHours(now.getHours() + amount);
+    } else if (unit === 'days') {
+        now.setDate(now.getDate() + amount);
+    }
+    var year = now.getFullYear();
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    var day = String(now.getDate()).padStart(2, '0');
+    var hours = String(now.getHours()).padStart(2, '0');
+    var minutes = String(now.getMinutes()).padStart(2, '0');
+    var formatted = year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
+    var input = document.getElementById('adminActivateExpiryInput');
+    if (input) {
+        input.value = formatted;
+        input.classList.add('highlight-pulse');
+        setTimeout(function() { input.classList.remove('highlight-pulse'); }, 800);
+    }
+}
+
+function submitAdminActivateJob() {
+    var idInput = document.getElementById('adminActivateTargetId');
+    var jobId = idInput ? idInput.value : null;
+    if (!jobId) return;
+
+    var expiryInput = document.getElementById('adminActivateExpiryInput');
+    var expiresAt = expiryInput ? expiryInput.value.trim() : '';
+
+    var btn = document.getElementById('confirmAdminActivateBtn');
+    var origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> جاري التفعيل...';
+    }
+
+    var formData = new FormData();
+    formData.append('job_id', jobId);
+    formData.append('action', 'activate');
+    if (expiresAt) {
+        formData.append('expires_at', expiresAt);
+    }
+
+    fetch('/admin/jobs/toggle', { method: 'POST', body: formData })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        if (data.success) {
+            closeAdminActivateModal();
+            var row = document.getElementById('admin-job-row-' + jobId);
+            if (row) {
+                row.className = '';
+                row.setAttribute('data-status-cat', 'active');
+                var statusCell = row.querySelector('.job-status-cell');
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="status-dot active"></span> <span style="color: var(--success); font-weight: 600;">نشطة ومتاحة</span>';
+                }
+                if (data.expires_formatted) {
+                    var expCell = row.querySelector('.job-expiry-cell');
+                    if (expCell) {
+                        expCell.innerHTML = '<span style="font-size: 0.85rem;">' + data.expires_formatted + '</span>';
+                    }
+                }
+                var actCell = row.querySelector('.job-actions-cell');
+                if (actCell) {
+                    var title = row.getAttribute('data-title') || '';
+                    var safeTitle = title.replace(/'/g, "\\'");
+                    actCell.innerHTML = '<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">' +
+                        '<button type="button" class="btn btn-danger btn-sm action-btn" onclick="openAdminRemoveModal(' + jobId + ', \'' + safeTitle + '\', this)">🗑️ تعطيل</button>' +
+                        '</div>';
+                }
             }
-            if (modalId) closeModal(modalId);
+            if (typeof filterAdminJobsTable === 'function') filterAdminJobsTable();
+            alert(data.message || 'تم تفعيل الوظيفة بنجاح');
+        } else {
+            alert(data.message || 'حدث خطأ أثناء تفعيل الوظيفة');
+        }
+    })
+    .catch(function(err) {
+        if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        console.error('Job activate error:', err);
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+function submitAdminDirectActivate(jobId, expiresAt, btn) {
+    var formData = new FormData();
+    formData.append('job_id', jobId);
+    formData.append('action', 'activate');
+    if (expiresAt) formData.append('expires_at', expiresAt);
+
+    fetch('/admin/jobs/toggle', { method: 'POST', body: formData })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var row = document.getElementById('admin-job-row-' + jobId);
+            if (row) {
+                row.className = '';
+                row.setAttribute('data-status-cat', 'active');
+                var statusCell = row.querySelector('.job-status-cell');
+                if (statusCell) statusCell.innerHTML = '<span class="status-dot active"></span> <span style="color: var(--success); font-weight: 600;">نشطة ومتاحة</span>';
+                if (data.expires_formatted) {
+                    var expCell = row.querySelector('.job-expiry-cell');
+                    if (expCell) expCell.innerHTML = '<span style="font-size: 0.85rem;">' + data.expires_formatted + '</span>';
+                }
+                var actCell = row.querySelector('.job-actions-cell');
+                if (actCell) {
+                    var title = row.getAttribute('data-title') || '';
+                    var safeTitle = title.replace(/'/g, "\\'");
+                    actCell.innerHTML = '<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">' +
+                        '<button type="button" class="btn btn-danger btn-sm action-btn" onclick="openAdminRemoveModal(' + jobId + ', \'' + safeTitle + '\', this)">🗑️ تعطيل</button>' +
+                        '</div>';
+                }
+            }
+            if (typeof filterAdminJobsTable === 'function') filterAdminJobsTable();
+            alert(data.message || 'تم تفعيل الوظيفة بنجاح');
         } else {
             alert(data.message || 'حدث خطأ');
         }
     })
     .catch(function() { alert('تعذر الاتصال بالسيرفر'); });
+}
+
+function openAdminRemoveModal(jobId, jobTitle, btn) {
+    var modal = document.getElementById('removeJobModal');
+    if (!modal) return;
+    var idInput = document.getElementById('removeJobTargetId');
+    if (idInput) idInput.value = jobId;
+    var titleEl = document.getElementById('removeJobTargetTitle');
+    if (titleEl) titleEl.textContent = 'الوظيفة: ' + (jobTitle || '#' + jobId);
+    var reasonEl = document.getElementById('removeReason');
+    if (reasonEl) reasonEl.value = '';
+    modal.style.display = 'flex';
+}
+
+function closeAdminRemoveModal() {
+    var modal = document.getElementById('removeJobModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function submitAdminRemoveJob() {
+    var idInput = document.getElementById('removeJobTargetId');
+    var jobId = idInput ? idInput.value : null;
+    if (!jobId) return;
+    var reasonInput = document.getElementById('removeReason');
+    var reason = reasonInput ? reasonInput.value.trim() : '';
+    if (!reason) {
+        alert('يرجى كتابة سبب التعطيل ليتم إعلام صاحب العمل به');
+        if (reasonInput) reasonInput.focus();
+        return;
+    }
+    var btn = document.getElementById('confirmRemoveBtn');
+    var origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> جاري التعطيل...';
+    }
+
+    var formData = new FormData();
+    formData.append('job_id', jobId);
+    formData.append('action', 'deactivate');
+    formData.append('reason', reason);
+
+    fetch('/admin/jobs/toggle', { method: 'POST', body: formData })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        if (data.success) {
+            closeAdminRemoveModal();
+            var row = document.getElementById('admin-job-row-' + jobId);
+            if (row) {
+                row.className = 'removed-row';
+                row.setAttribute('data-status-cat', 'removed');
+                var statusCell = row.querySelector('.job-status-cell');
+                if (statusCell) {
+                    var safeReason = reason.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                    var shortReason = safeReason.length > 45 ? safeReason.substring(0, 45) + '...' : safeReason;
+                    statusCell.innerHTML = '<span class="status-dot banned"></span> <strong style="color: var(--danger);">معطلة من الإدارة</strong>' +
+                        '<div class="admin-remove-reason-text text-muted" style="font-size: 0.75rem; margin-top: 3px; max-width: 200px; line-height: 1.3;" title="' + safeReason + '">السبب: ' + shortReason + '</div>';
+                }
+                var actCell = row.querySelector('.job-actions-cell');
+                if (actCell) {
+                    var title = row.getAttribute('data-title') || '';
+                    var safeTitle = title.replace(/'/g, "\\'");
+                    actCell.innerHTML = '<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">' +
+                        '<button type="button" class="btn btn-success btn-sm action-btn" onclick="openAdminActivateModal(' + jobId + ', \'' + safeTitle + '\', \'\', this)">♻️ تفعيل</button>' +
+                        '</div>';
+                }
+            }
+            if (typeof filterAdminJobsTable === 'function') filterAdminJobsTable();
+            alert(data.message || 'تم تعطيل الوظيفة بنجاح');
+        } else {
+            alert(data.message || 'حدث خطأ أثناء تعطيل الوظيفة');
+        }
+    })
+    .catch(function(err) {
+        if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+        console.error('Job deactivate error:', err);
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+function openAdminReviewModal(jobId) {
+    var modal = document.getElementById('adminJobReviewModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    var loadingEl = document.getElementById('reviewModalLoading');
+    var contentEl = document.getElementById('reviewModalContent');
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (contentEl) contentEl.style.display = 'none';
+
+    fetch('/admin/jobs/details?id=' + jobId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.success || !data.job) {
+            alert(data.message || 'تعذر تحميل بيانات الوظيفة');
+            closeAdminReviewModal();
+            return;
+        }
+        var j = data.job;
+        document.getElementById('revTitle').textContent = j.Title || '';
+        document.getElementById('revCompany').textContent = j.CompanyName || j.EmployerName || 'غير محدد';
+        document.getElementById('revEmployer').textContent = j.EmployerName || '';
+        document.getElementById('revCity').textContent = j.City || 'عن بُعد';
+        document.getElementById('revType').textContent = j.JobType || '';
+        document.getElementById('revLevel').textContent = j.ExperienceLevel || '';
+        document.getElementById('revExpiry').textContent = j.ExpiresAtFormatted || 'غير محدد';
+        document.getElementById('revDescription').textContent = j.Description || '';
+        document.getElementById('revRequirements').textContent = j.Requirements || 'لا توجد متطلبات مسجلة';
+
+        // Skills badges
+        var skillsBox = document.getElementById('revSkills');
+        if (skillsBox) {
+            skillsBox.innerHTML = '';
+            var skills = (j.Skills || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            if (skills.length > 0) {
+                skills.forEach(function(s) {
+                    var sp = document.createElement('span');
+                    sp.className = 'tag tag-sm';
+                    sp.textContent = s;
+                    skillsBox.appendChild(sp);
+                });
+            } else {
+                skillsBox.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">لا توجد مهارات مسجلة</span>';
+            }
+        }
+
+        // Employer notes
+        var empBox = document.getElementById('revEmployerNotesBox');
+        var empNotes = document.getElementById('revEmployerNotes');
+        if (empBox && empNotes) {
+            if (j.EmployerReviewNotes) {
+                empNotes.textContent = j.EmployerReviewNotes;
+                empBox.style.display = 'block';
+            } else {
+                empBox.style.display = 'none';
+            }
+        }
+
+        // Previous remove reason
+        var prevBox = document.getElementById('revPrevReasonBox');
+        var prevReason = document.getElementById('revPrevReason');
+        if (prevBox && prevReason) {
+            if (j.AdminRemoveReason) {
+                prevReason.textContent = j.AdminRemoveReason;
+                prevBox.style.display = 'block';
+            } else {
+                prevBox.style.display = 'none';
+            }
+        }
+
+        // Hook buttons
+        var approveBtn = document.getElementById('revApproveBtn');
+        if (approveBtn) {
+            approveBtn.onclick = function() {
+                closeAdminReviewModal();
+                openAdminActivateModal(j.JobID, j.Title, j.ExpiresAtInput);
+            };
+        }
+
+        var rejectBtn = document.getElementById('revRejectBtn');
+        if (rejectBtn) {
+            rejectBtn.onclick = function() {
+                closeAdminReviewModal();
+                openAdminRemoveModal(j.JobID, j.Title);
+            };
+        }
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (contentEl) contentEl.style.display = 'block';
+    })
+    .catch(function(err) {
+        console.error('Job details error:', err);
+        alert('تعذر تحميل تفاصيل الوظيفة');
+        closeAdminReviewModal();
+    });
+}
+
+function closeAdminReviewModal() {
+    var modal = document.getElementById('adminJobReviewModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function restoreAdminJob(jobId, jobTitle, btn) {
+    openAdminActivateModal(jobId, jobTitle, '', btn);
+}
+
+function filterAdminJobsTable() {
+    var statusSelect = document.getElementById('filterJobStatus');
+    var statusFilter = statusSelect ? statusSelect.value.trim() : '';
+    var searchInput = document.getElementById('searchAdminJobs');
+    var searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    var rows = document.querySelectorAll('#adminJobsTable tbody tr');
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+        if (row.cells.length < 5) return;
+        var cat = row.getAttribute('data-status-cat') || '';
+        var title = row.getAttribute('data-title') || '';
+        var comp = row.getAttribute('data-company') || '';
+        var emp = row.getAttribute('data-employer') || '';
+        var id = row.getAttribute('data-job-id') || '';
+
+        var matchesStatus = (!statusFilter || cat === statusFilter);
+        var matchesSearch = (!searchQuery || title.includes(searchQuery) || comp.includes(searchQuery) || emp.includes(searchQuery) || id.includes(searchQuery));
+
+        if (matchesStatus && matchesSearch) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    var countEl = document.getElementById('visibleJobsCount');
+    if (countEl) countEl.textContent = visibleCount;
+}
+
+// Backwards compatibility wrappers
+function removeJob(jobId, btn) {
+    var row = btn ? btn.closest('tr') : document.getElementById('admin-job-row-' + jobId);
+    var title = row ? row.getAttribute('data-title') : '';
+    openAdminRemoveModal(jobId, title, btn);
+}
+function restoreJob(jobId, btn) {
+    var row = btn ? btn.closest('tr') : document.getElementById('admin-job-row-' + jobId);
+    var title = row ? row.getAttribute('data-title') : '';
+    openAdminActivateModal(jobId, title, '', btn);
+}
+function toggleJobAjax(jobId, btn, modalId, isRestoring) {
+    if (isRestoring) {
+        openAdminActivateModal(jobId, '', '', btn);
+    } else {
+        openAdminRemoveModal(jobId, '', btn);
+    }
 }
 
 function contactApplicant(appId) {
@@ -914,22 +1704,64 @@ function updateApplicationStatus(appId, status, btn) {
     .then(function(data) {
         if (data.success) {
             var statusLabels = {
-                'shortlisted': '⭐ قائمة قصيرة',
+                'shortlisted': '⭐ القائمة القصيرة',
                 'interview': '📞 مقابلة',
                 'accepted': '🎉 مقبول',
-                'rejected': '❌ مرفوض'
+                'rejected': '❌ مرفوض',
+                'pending': '⏳ قيد المراجعة'
             };
             var statusClasses = {
                 'shortlisted': 'status-interview',
                 'interview': 'status-interview',
                 'accepted': 'status-interview',
-                'rejected': 'status-rejected'
+                'rejected': 'status-rejected',
+                'pending': 'status-pending'
             };
-            var card = btn.closest('.applicant-card');
-            var badge = card.querySelector('.status-badge');
-            if (badge) {
-                badge.className = 'status-badge ' + (statusClasses[status] || 'status-pending');
-                badge.textContent = statusLabels[status] || status;
+            var card = btn ? btn.closest('.applicant-card') : document.getElementById('applicant-card-' + appId);
+            if (card) {
+                card.setAttribute('data-status', status);
+                var badge = card.querySelector('.status-badge');
+                if (badge) {
+                    badge.className = 'status-badge ' + (statusClasses[status] || 'status-pending');
+                    badge.textContent = statusLabels[status] || status;
+                }
+
+                if (status === 'rejected') {
+                    var actions = card.querySelector('.applicant-actions');
+                    if (actions) {
+                        actions.innerHTML = '<span class="action-status-label" style="color: var(--danger); font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">❌ تم رفض هذا الطلب</span>';
+                    }
+                    var cbLabel = card.querySelector('.applicant-checkbox-label');
+                    if (cbLabel) {
+                        cbLabel.remove();
+                        updateSelectedApplicants();
+                    }
+                } else if (status === 'interview' || status === 'accepted') {
+                    var actions = card.querySelector('.applicant-actions');
+                    if (actions) {
+                        actions.innerHTML = '<span class="action-status-label" style="color: #4a8c5c; font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">📅 تم قبول الطلب وتحديد المقابلة</span>' +
+                            ' <a href="/employer/interview?application_id=' + appId + '" class="btn btn-outline btn-sm" style="font-size: 0.8rem;">✏️ تعديل المقابلة</a>';
+                    }
+                    var cbLabel = card.querySelector('.applicant-checkbox-label');
+                    if (cbLabel) {
+                        cbLabel.remove();
+                        updateSelectedApplicants();
+                    }
+                }
+            }
+            recalculateApplicantCounts();
+
+            // Re-check current active filter visibility
+            var activeBtn = document.querySelector('.status-filter-btn.btn-primary, .status-filter-btn.btn-success');
+            var currentFilter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
+            if (currentFilter && currentFilter !== 'all' && card) {
+                if (currentFilter === 'interview' && (status === 'interview' || status === 'accepted')) {
+                    card.style.display = 'block';
+                } else if (currentFilter === status) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
             }
         } else {
             alert(data.message || 'حدث خطأ');
@@ -938,6 +1770,507 @@ function updateApplicationStatus(appId, status, btn) {
     .catch(function() {
         alert('تعذر الاتصال بالسيرفر');
     });
+}
+
+function toggleShortlist(appId, btn) {
+    if (!btn) return;
+    var isCurrentlyShortlisted = (btn.getAttribute('data-shortlisted') === '1');
+    var targetStatus = isCurrentlyShortlisted ? 'pending' : 'shortlisted';
+
+    btn.disabled = true;
+    var originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> جاري التحديث...';
+
+    var formData = new FormData();
+    formData.append('application_id', appId);
+    formData.append('status', targetStatus);
+
+    fetch('/employer/applicants/status', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        if (data.success) {
+            var card = btn.closest('.applicant-card') || document.getElementById('applicant-card-' + appId);
+            if (targetStatus === 'shortlisted') {
+                btn.setAttribute('data-shortlisted', '1');
+                btn.className = 'btn btn-sm shortlist-toggle-btn';
+                btn.style.background = '#f59e0b';
+                btn.style.borderColor = '#f59e0b';
+                btn.style.color = '#fff';
+                btn.style.fontWeight = '700';
+                btn.innerHTML = '★ إزالة من القائمة القصيرة';
+
+                if (card) {
+                    card.setAttribute('data-status', 'shortlisted');
+                    var badge = card.querySelector('.status-badge');
+                    if (badge) {
+                        badge.className = 'status-badge status-interview';
+                        badge.textContent = '⭐ القائمة القصيرة';
+                    }
+                }
+            } else {
+                btn.setAttribute('data-shortlisted', '0');
+                btn.className = 'btn btn-outline btn-sm shortlist-toggle-btn';
+                btn.style.background = 'transparent';
+                btn.style.borderColor = '#f59e0b';
+                btn.style.color = '#f59e0b';
+                btn.style.fontWeight = '700';
+                btn.innerHTML = '⭐ إضافة للقائمة القصيرة';
+
+                if (card) {
+                    card.setAttribute('data-status', 'pending');
+                    var badge = card.querySelector('.status-badge');
+                    if (badge) {
+                        badge.className = 'status-badge status-pending';
+                        badge.textContent = '⏳ قيد المراجعة';
+                    }
+                }
+            }
+
+            recalculateApplicantCounts();
+
+            // Re-check active filter tab
+            var activeBtn = document.querySelector('.status-filter-btn.btn-primary, .status-filter-btn.btn-success');
+            var currentFilter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
+            if (currentFilter && currentFilter !== 'all' && card) {
+                if (currentFilter === 'shortlisted') {
+                    card.style.display = (targetStatus === 'shortlisted') ? 'block' : 'none';
+                } else if (currentFilter === 'pending') {
+                    card.style.display = (targetStatus === 'pending') ? 'block' : 'none';
+                }
+            }
+        } else {
+            btn.innerHTML = originalHtml;
+            alert(data.message || 'حدث خطأ أثناء تعديل القائمة القصيرة');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+function rejectApplicant(appId, btn) {
+    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟')) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> جاري الرفض...';
+    }
+
+    var formData = new FormData();
+    formData.append('application_id', appId);
+    formData.append('status', 'rejected');
+
+    fetch('/employer/applicants/status', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var card = btn ? btn.closest('.applicant-card') : document.getElementById('applicant-card-' + appId);
+            if (card) {
+                card.setAttribute('data-status', 'rejected');
+
+                var badge = card.querySelector('.status-badge');
+                if (badge) {
+                    badge.className = 'status-badge status-rejected';
+                    badge.textContent = '❌ مرفوض';
+                }
+
+                var actions = card.querySelector('.applicant-actions');
+                if (actions) {
+                    actions.innerHTML = '<span class="action-status-label" style="color: var(--danger); font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">❌ تم رفض هذا الطلب</span>';
+                }
+
+                var cbLabel = card.querySelector('.applicant-checkbox-label');
+                if (cbLabel) {
+                    var cb = cbLabel.querySelector('.applicant-checkbox');
+                    if (cb && cb.checked) {
+                        cb.checked = false;
+                    }
+                    cbLabel.remove();
+                    updateSelectedApplicants();
+                }
+            }
+
+            recalculateApplicantCounts();
+
+            var activeBtn = document.querySelector('.status-filter-btn.btn-primary, .status-filter-btn.btn-success');
+            var currentFilter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
+            if (currentFilter && currentFilter !== 'all' && currentFilter !== 'rejected' && card) {
+                card.style.display = 'none';
+            }
+        } else {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '❌ رفض';
+            }
+            alert(data.message || 'حدث خطأ أثناء رفض الطلب');
+        }
+    })
+    .catch(function() {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '❌ رفض';
+        }
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+function updateSelectedApplicants() {
+    var checkedBoxes = document.querySelectorAll('.applicant-checkbox:checked');
+    var count = checkedBoxes.length;
+    var toolbar = document.getElementById('bulkActionsToolbar');
+    var countEl = document.getElementById('selectedApplicantsCount');
+    if (countEl) countEl.textContent = count;
+    if (toolbar) {
+        toolbar.style.display = (count > 0) ? 'block' : 'none';
+    }
+
+    var allCheckboxes = document.querySelectorAll('.applicant-checkbox');
+    var master = document.getElementById('selectAllCheckbox');
+    if (master) {
+        master.checked = (allCheckboxes.length > 0 && checkedBoxes.length === allCheckboxes.length);
+    }
+}
+
+function toggleSelectAllApplicants(masterCheckbox) {
+    var isChecked = masterCheckbox ? masterCheckbox.checked : false;
+    var checkboxes = document.querySelectorAll('.applicant-checkbox');
+    checkboxes.forEach(function (cb) {
+        var card = cb.closest('.applicant-card');
+        if (card && card.style.display !== 'none') {
+            cb.checked = isChecked;
+        } else if (!isChecked) {
+            cb.checked = false;
+        }
+    });
+    updateSelectedApplicants();
+}
+
+function clearSelectedApplicants() {
+    var checkboxes = document.querySelectorAll('.applicant-checkbox');
+    checkboxes.forEach(function (cb) { cb.checked = false; });
+    var master = document.getElementById('selectAllCheckbox');
+    if (master) master.checked = false;
+    updateSelectedApplicants();
+}
+
+function openBulkInterviewModal() {
+    var checkedBoxes = document.querySelectorAll('.applicant-checkbox:checked');
+    if (!checkedBoxes || checkedBoxes.length === 0) {
+        alert('برجاء تحديد متقدم واحد على الأقل أولاً');
+        return;
+    }
+
+    var names = [];
+    checkedBoxes.forEach(function(cb) {
+        var name = cb.getAttribute('data-name');
+        if (name) names.push(name);
+    });
+
+    var summaryEl = document.getElementById('bulkSelectedListSummary');
+    if (summaryEl) {
+        summaryEl.innerHTML = '<strong style="color: var(--primary);">المتقدمين المحددين (' + checkedBoxes.length + '):</strong> ' + 
+            names.map(function(n) { return '<span class="badge" style="margin: 2px 4px; background: rgba(196,113,43,0.15); color: inherit; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(196,113,43,0.3);">' + n + '</span>'; }).join(' ');
+    }
+
+    var dtInput = document.getElementById('bulkInterviewDatetime');
+    if (dtInput) {
+        var nowStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        dtInput.min = nowStr;
+        if (!dtInput.value) {
+            var tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000 - new Date().getTimezoneOffset() * 60000);
+            tomorrow.setHours(10, 0, 0, 0);
+            dtInput.value = tomorrow.toISOString().slice(0, 16);
+        }
+    }
+
+    var modal = document.getElementById('bulkInterviewModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeBulkInterviewModal() {
+    var modal = document.getElementById('bulkInterviewModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function toggleBulkLocationType(type) {
+    var onlineField = document.getElementById('bulkOnlineField');
+    var onsiteField = document.getElementById('bulkOnsiteField');
+    if (type === 'online') {
+        if (onlineField) onlineField.style.display = 'block';
+        if (onsiteField) onsiteField.style.display = 'none';
+    } else {
+        if (onlineField) onlineField.style.display = 'none';
+        if (onsiteField) onsiteField.style.display = 'block';
+    }
+}
+
+function submitBulkInterview(e) {
+    if (e) e.preventDefault();
+
+    var checkedBoxes = document.querySelectorAll('.applicant-checkbox:checked');
+    if (!checkedBoxes || checkedBoxes.length === 0) {
+        alert('لم يتم تحديد أي متقدمين');
+        return;
+    }
+
+    var appIds = [];
+    checkedBoxes.forEach(function(cb) {
+        var v = parseInt(cb.value, 10);
+        if (v) appIds.push(v);
+    });
+
+    var dtInput = document.getElementById('bulkInterviewDatetime');
+    var dtVal = dtInput ? dtInput.value : '';
+    if (!dtVal) {
+        alert('برجاء تحديد موعد وتاريخ المقابلة');
+        if (dtInput) dtInput.focus();
+        return;
+    }
+
+    var targetDate = new Date(dtVal);
+    if (targetDate <= new Date()) {
+        alert('موعد المقابلة يجب أن يكون في تاريخ وساعة مستقبلية وغير منتهي');
+        if (dtInput) dtInput.focus();
+        return;
+    }
+
+    var locTypeRadio = document.querySelector('input[name="bulk_loc_type"]:checked');
+    var locType = locTypeRadio ? locTypeRadio.value : 'online';
+
+    var meetingLinkInput = document.getElementById('bulkMeetingLink');
+    var meetingLink = meetingLinkInput ? meetingLinkInput.value.trim() : '';
+
+    var locationInput = document.getElementById('bulkLocation');
+    var location = locationInput ? locationInput.value.trim() : '';
+
+    if (locType === 'online') {
+        if (!meetingLink) {
+            alert('برجاء إدخال رابط المقابلة الأونلاين');
+            if (meetingLinkInput) meetingLinkInput.focus();
+            return;
+        }
+        if (!location) {
+            location = 'أونلاين عبر الإنترنت';
+        }
+    } else {
+        if (!location) {
+            alert('برجاء إدخال عنوان ومقر المقابلة بالتفصيل');
+            if (locationInput) locationInput.focus();
+            return;
+        }
+    }
+
+    var notesInput = document.getElementById('bulkNotes');
+    var notes = notesInput ? notesInput.value.trim() : '';
+
+    var submitBtn = document.getElementById('submitBulkInterviewBtn');
+    var originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> جاري الإرسال وتحديد المواعيد...';
+    }
+
+    var formData = new FormData();
+    formData.append('application_ids', JSON.stringify(appIds));
+    formData.append('interview_datetime', dtVal);
+    formData.append('location_type', locType);
+    formData.append('location', location);
+    formData.append('meeting_link', meetingLink);
+    formData.append('notes', notes);
+
+    fetch('/employer/applicants/bulk-interview', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml || '🚀 إرسال وتحديد المقابلة للجميع';
+        }
+
+        if (data.success) {
+            var updatedIds = data.application_ids || appIds;
+            updatedIds.forEach(function(id) {
+                var card = document.getElementById('applicant-card-' + id) || document.querySelector('.applicant-card[data-app-id="' + id + '"]');
+                if (card) {
+                    card.setAttribute('data-status', 'interview');
+
+                    var badge = card.querySelector('.status-badge');
+                    if (badge) {
+                        badge.className = 'status-badge status-interview';
+                        badge.textContent = '📞 مقابلة';
+                    }
+
+                    var actions = card.querySelector('.applicant-actions');
+                    if (actions) {
+                        actions.innerHTML = '<span class="action-status-label" style="color: #4a8c5c; font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">📅 تم قبول الطلب وتحديد المقابلة</span>' +
+                            ' <a href="/employer/interview?application_id=' + id + '" class="btn btn-outline btn-sm" style="font-size: 0.8rem;">✏️ تعديل المقابلة</a>';
+                    }
+
+                    var cbLabel = card.querySelector('.applicant-checkbox-label');
+                    if (cbLabel) {
+                        cbLabel.remove();
+                    }
+                }
+            });
+
+            recalculateApplicantCounts();
+            clearSelectedApplicants();
+            closeBulkInterviewModal();
+
+            alert(data.message || 'تم إرسال تفاصيل القبول وتحديد المقابلة لجميع المتقدمين بنجاح! 🎉');
+        } else {
+            alert(data.message || 'حدث خطأ أثناء تحديد المقابلة');
+        }
+    })
+    .catch(function() {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml || '🚀 إرسال وتحديد المقابلة للجميع';
+        }
+        alert('تعذر الاتصال بالسيرفر');
+    });
+}
+
+// Global exposure
+window.toggleShortlist = toggleShortlist;
+window.rejectApplicant = rejectApplicant;
+window.updateSelectedApplicants = updateSelectedApplicants;
+window.toggleSelectAllApplicants = toggleSelectAllApplicants;
+window.clearSelectedApplicants = clearSelectedApplicants;
+window.openBulkInterviewModal = openBulkInterviewModal;
+window.closeBulkInterviewModal = closeBulkInterviewModal;
+window.toggleBulkLocationType = toggleBulkLocationType;
+window.submitBulkInterview = submitBulkInterview;
+
+function recalculateApplicantCounts() {
+    var cards = document.querySelectorAll('.applicant-card');
+    var all = cards.length;
+    var shortlisted = 0, pending = 0, interview = 0, rejected = 0;
+    cards.forEach(function (c) {
+        var s = c.getAttribute('data-status') || 'pending';
+        if (s === 'shortlisted') shortlisted++;
+        else if (s === 'pending') pending++;
+        else if (s === 'interview' || s === 'accepted') interview++;
+        else if (s === 'rejected') rejected++;
+    });
+    var elAll = document.getElementById('count-all');
+    var elShort = document.getElementById('count-shortlisted');
+    var elPend = document.getElementById('count-pending');
+    var elInter = document.getElementById('count-interview');
+    var elRej = document.getElementById('count-rejected');
+    if (elAll) elAll.textContent = all;
+    if (elShort) elShort.textContent = shortlisted;
+    if (elPend) elPend.textContent = pending;
+    if (elInter) elInter.textContent = interview;
+    if (elRej) elRej.textContent = rejected;
+}
+
+function initApplicantsFilter() {
+    var buttons = document.querySelectorAll('.status-filter-btn');
+    if (!buttons || buttons.length === 0) return;
+
+    function filterCards(filter) {
+        var cards = document.querySelectorAll('.applicant-card');
+        var visibleCount = 0;
+
+        cards.forEach(function (card) {
+            var st = card.getAttribute('data-status') || 'pending';
+            var match = false;
+            if (filter === 'all') {
+                match = true;
+            } else if (filter === 'interview') {
+                match = (st === 'interview' || st === 'accepted');
+            } else {
+                match = (st === filter);
+            }
+
+            if (match) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        var noMatch = document.getElementById('noFilteredApplicants');
+        if (noMatch) {
+            if (visibleCount === 0 && cards.length > 0) {
+                noMatch.style.display = 'block';
+                var titleEl = document.getElementById('noFilteredTitle');
+                var descEl = document.getElementById('noFilteredDesc');
+                if (filter === 'shortlisted') {
+                    if (titleEl) titleEl.textContent = 'لا يوجد متقدمين في القائمة القصيرة حتى الآن ⭐';
+                    if (descEl) descEl.textContent = 'اضغط على زر "⭐ قائمة قصيرة" عند أي متقدم لإضافته إلى هنا.';
+                } else {
+                    if (titleEl) titleEl.textContent = 'لا يوجد متقدمين في هذا القسم';
+                    if (descEl) descEl.textContent = 'لم يتم العثور على طلبات مطابقة لهذا التصنيف.';
+                }
+            } else {
+                noMatch.style.display = 'none';
+            }
+        }
+
+        buttons.forEach(function (b) {
+            var f = b.getAttribute('data-filter');
+            if (f === filter) {
+                b.classList.remove('btn-outline');
+                if (f === 'shortlisted') {
+                    b.classList.add('btn-success');
+                    b.style.background = '#f59e0b';
+                    b.style.borderColor = '#f59e0b';
+                    b.style.color = '#fff';
+                } else {
+                    b.classList.add('btn-primary');
+                }
+            } else {
+                b.classList.remove('btn-primary', 'btn-success');
+                b.classList.add('btn-outline');
+                if (f === 'shortlisted') {
+                    b.style.background = 'transparent';
+                    b.style.borderColor = '#f59e0b';
+                    b.style.color = '#f59e0b';
+                } else {
+                    b.style.background = '';
+                    b.style.borderColor = '';
+                    b.style.color = '';
+                }
+            }
+        });
+    }
+
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var filter = btn.getAttribute('data-filter');
+            filterCards(filter);
+            var url = new URL(window.location);
+            if (filter === 'all') {
+                url.searchParams.delete('status');
+            } else {
+                url.searchParams.set('status', filter);
+            }
+            window.history.replaceState({}, '', url);
+        });
+    });
+
+    var urlParams = new URLSearchParams(window.location.search);
+    var initialStatus = urlParams.get('status') || 'all';
+    filterCards(initialStatus);
+}
+
+document.addEventListener('DOMContentLoaded', initApplicantsFilter);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initApplicantsFilter();
 }
 
 function downloadBackup() {
@@ -957,3 +2290,231 @@ function confirmDeleteAccount() {
         }
     }
 }
+
+// ===========================
+// Employer Job Toggle (Pause / Resume Accepting Applications)
+// ===========================
+var currentReopenBtn = null;
+
+function toggleEmployerJob(jobId, btn, newExpiresAt, onComplete) {
+    if (!btn) {
+        btn = document.querySelector('#employer-job-' + jobId + ' .toggle-job-btn');
+    }
+    var isCurrentlyActive = btn ? btn.getAttribute('data-active') === '1' : false;
+    var isExpired = btn ? btn.getAttribute('data-expired') === '1' : false;
+
+    // If job is expired and no new expiry provided, open reopen modal right away
+    if (isExpired && !newExpiresAt) {
+        var jobItem = document.getElementById('employer-job-' + jobId);
+        var jobTitle = jobItem && jobItem.querySelector('h4') ? jobItem.querySelector('h4').textContent.trim() : '';
+        openReopenModal(jobId, jobTitle, '', btn);
+        return;
+    }
+
+    if (!newExpiresAt) {
+        var confirmMsg = isCurrentlyActive 
+            ? 'هل تريد إيقاف استقبال طلبات التقديم على هذه الوظيفة وتصفير العداد؟' 
+            : 'هل تريد إعادة فتح واستئناف استقبال طلبات التقديم على هذه الوظيفة؟';
+
+        if (!confirm(confirmMsg)) return;
+    }
+
+    var originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> جاري التحديث...';
+    }
+
+    var formData = new FormData();
+    formData.append('job_id', jobId);
+    if (newExpiresAt) {
+        formData.append('new_expires_at', newExpiresAt);
+    }
+
+    fetch('/employer/jobs/toggle', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function (res) {
+        return res.text().then(function (text) {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Server response was not JSON:', text);
+                throw new Error('استجابة غير صحيحة من السيرفر');
+            }
+        });
+    })
+    .then(function (data) {
+        if (btn) btn.disabled = false;
+        if (typeof onComplete === 'function') onComplete();
+
+        if (data.require_new_deadline) {
+            if (btn) btn.innerHTML = originalHtml;
+            openReopenModal(jobId, data.job_title, data.old_expires_at, btn);
+            return;
+        }
+
+        if (data.success) {
+            var jobItem = document.getElementById('employer-job-' + jobId);
+            var statusPill = jobItem ? jobItem.querySelector('.job-status-pill') : null;
+            var timerBox = jobItem ? jobItem.querySelector('.job-timer-box') : null;
+
+            if (data.is_active) {
+                if (btn) {
+                    btn.setAttribute('data-active', '1');
+                    btn.removeAttribute('data-expired');
+                    btn.className = 'btn btn-outline btn-sm toggle-job-btn';
+                    btn.style.color = 'var(--danger)';
+                    btn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    btn.innerHTML = '⏸️ إيقاف التقديم';
+                    btn.title = 'إيقاف استقبال طلبات جديدة على هذه الوظيفة وتصفير العداد';
+                    btn.onclick = function() { toggleEmployerJob(jobId, this); };
+                }
+
+                if (statusPill) {
+                    statusPill.style.background = 'rgba(74, 140, 92, 0.15)';
+                    statusPill.style.color = '#4a8c5c';
+                    statusPill.style.borderColor = 'rgba(74, 140, 92, 0.3)';
+                    statusPill.textContent = '🟢 نشطة';
+                }
+
+                if (timerBox && data.expires_iso) {
+                    timerBox.innerHTML = '<span class="timer-badge active job-countdown" data-expires="' + data.expires_iso + '">⏳ متبقي: <strong class="countdown-text">جاري الحساب...</strong></span>';
+                }
+
+                if (typeof window.initJobTimers === 'function') {
+                    window.initJobTimers();
+                }
+            } else {
+                // Paused / stopped -> timer is zeroed out
+                if (btn) {
+                    btn.setAttribute('data-active', '0');
+                    btn.setAttribute('data-expired', '1');
+                    btn.className = 'btn btn-primary btn-sm toggle-job-btn';
+                    btn.style.color = '';
+                    btn.style.borderColor = '';
+                    btn.innerHTML = '🔄 إعادة فتح التقديم';
+                    btn.title = 'تحديد موعد جديد وإعادة فتح التقديم';
+                    btn.onclick = function() {
+                        var jTitle = jobItem && jobItem.querySelector('h4') ? jobItem.querySelector('h4').textContent.trim() : '';
+                        openReopenModal(jobId, jTitle, '', this);
+                    };
+                }
+
+                if (statusPill) {
+                    statusPill.style.background = 'rgba(239, 68, 68, 0.15)';
+                    statusPill.style.color = '#ef4444';
+                    statusPill.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    statusPill.textContent = '⏸️ التقديم متوقف';
+                }
+
+                if (timerBox) {
+                    timerBox.innerHTML = '<span class="timer-badge expired">⛔ التقديم متوقف (العداد: 00:00)</span>';
+                }
+            }
+        } else {
+            if (btn) btn.innerHTML = originalHtml;
+            alert(data.message || 'حدث خطأ أثناء تعديل حالة الوظيفة');
+        }
+    })
+    .catch(function (err) {
+        console.error('Toggle job error:', err);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+        if (typeof onComplete === 'function') onComplete();
+        alert('تعذر استكمال العملية: ' + (err.message || 'خطأ في الاتصال'));
+    });
+}
+
+function openReopenModal(jobId, jobTitle, oldExpiresAt, btn) {
+    currentReopenBtn = btn || document.querySelector('#employer-job-' + jobId + ' .toggle-job-btn');
+    var modal = document.getElementById('reopenJobModal');
+    var promptEl = document.getElementById('reopenJobPrompt');
+    var idInput = document.getElementById('reopenJobId');
+
+    if (idInput) idInput.value = jobId;
+    if (promptEl) {
+        promptEl.innerHTML = 'انتهى موعد التقديم السابق على وظيفة <strong>' + (jobTitle || '') + '</strong>' + 
+            (oldExpiresAt ? ' (' + oldExpiresAt + ')' : '') + 
+            '.<br>اختر موعداً جديداً لاستئناف استقبال طلبات التوظيف:';
+    }
+
+    // Default to +24 hours
+    setQuickDeadline(24, 'hours');
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeReopenModal() {
+    var modal = document.getElementById('reopenJobModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function setQuickDeadline(amount, unit) {
+    var expiryInput = document.getElementById('reopenNewExpiry');
+    if (!expiryInput) return;
+    expiryInput.disabled = false;
+
+    var ms = 0;
+    if (unit === 'minutes') ms = amount * 60 * 1000;
+    else if (unit === 'hours') ms = amount * 3600 * 1000;
+    else if (unit === 'days') ms = amount * 86400 * 1000;
+
+    var now = new Date();
+    var targetDate = new Date(now.getTime() + ms);
+    var year = targetDate.getFullYear();
+    var month = String(targetDate.getMonth() + 1).padStart(2, '0');
+    var day = String(targetDate.getDate()).padStart(2, '0');
+    var hours = String(targetDate.getHours()).padStart(2, '0');
+    var minutes = String(targetDate.getMinutes()).padStart(2, '0');
+    var localIso = year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
+
+    expiryInput.value = localIso;
+
+    var minDate = new Date(now.getTime() + 60000);
+    var minIso = minDate.getFullYear() + '-' + 
+        String(minDate.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(minDate.getDate()).padStart(2, '0') + 'T' + 
+        String(minDate.getHours()).padStart(2, '0') + ':' + 
+        String(minDate.getMinutes()).padStart(2, '0');
+    expiryInput.min = minIso;
+}
+
+function submitReopenJob() {
+    var jobId = document.getElementById('reopenJobId') ? document.getElementById('reopenJobId').value : null;
+    if (!jobId) return;
+
+    var input = document.getElementById('reopenNewExpiry');
+    var newExpiryVal = input ? input.value : '';
+    if (!newExpiryVal) {
+        alert('برجاء تحديد الموعد الجديد لانتهاء التقديم');
+        return;
+    }
+    var targetDate = new Date(newExpiryVal);
+    if (targetDate <= new Date()) {
+        alert('الموعد الجديد لازم يكون في وقت مستقبلي وغير منتهي');
+        return;
+    }
+
+    var confirmBtn = document.getElementById('confirmReopenBtn');
+    var originalConfirmHtml = confirmBtn ? confirmBtn.innerHTML : '';
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner"></span> جاري الحفظ...';
+    }
+
+    var targetBtn = currentReopenBtn || document.querySelector('#employer-job-' + jobId + ' .toggle-job-btn');
+
+    toggleEmployerJob(jobId, targetBtn, newExpiryVal, function() {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalConfirmHtml || '✅ حفظ وفتح التقديم';
+        }
+        closeReopenModal();
+    });
+}
+
+

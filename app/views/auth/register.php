@@ -178,8 +178,13 @@
                         >
                     </div>
 
+                    <div class="alert alert-info mt-2 mb-2" style="font-size: 0.8rem; padding: 10px 14px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); color: #93c5fd; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                        <span>🛡️</span>
+                        <span>تخضع الحسابات الجديدة لمراجعة الإدارة قبل التفعيل لمنع الحسابات الوهمية، وسيصلك بريد إلكتروني فور الموافقة.</span>
+                    </div>
+
                     <button type="submit" class="btn btn-primary" id="registerBtn">
-                        سجّلني
+                        إنشاء الحساب
                     </button>
                 </form>
 

@@ -48,6 +48,8 @@ class Job
             JOIN Users u ON j.EmployerID = u.UserID
             LEFT JOIN EmployerProfiles ep ON j.EmployerID = ep.UserID
             WHERE j.IsActive = 1
+              AND (j.ExpiresAt IS NULL OR j.ExpiresAt > GETDATE())
+              AND j.IsRemovedByAdmin = 0
         ";
         $params = [];
 
@@ -134,18 +136,116 @@ class Job
     }
 
     /**
-     * Toggle job active status
+     * Admin deactivate / remove job with reason
      */
-    public function toggleActive($jobId)
+    /**
+     * Admin deactivate / remove job with reason
+     */
+    public function adminDeactivate($jobId, $reason = null)
     {
-        $stmt = $this->db->prepare("UPDATE Jobs SET IsActive = CASE WHEN IsActive = 1 THEN 0 ELSE 1 END, UpdatedAt = GETDATE() WHERE JobID = ?");
+        $stmt = $this->db->prepare("
+            UPDATE Jobs 
+            SET IsActive = 0, 
+                IsRemovedByAdmin = 1, 
+                AdminRemoveReason = ?, 
+                AdminReviewStatus = 'rejected',
+                UpdatedAt = GETDATE() 
+            WHERE JobID = ?
+        ");
+        return $stmt->execute([$reason ?: null, $jobId]);
+    }
+
+    /**
+     * Admin activate / restore job with custom duration / expiry
+     */
+    public function adminActivate($jobId, $expiresAt = null)
+    {
+        if (!empty($expiresAt)) {
+            $stmt = $this->db->prepare("
+                UPDATE Jobs 
+                SET IsActive = 1, 
+                    IsRemovedByAdmin = 0, 
+                    AdminRemoveReason = NULL, 
+                    AdminReviewStatus = 'approved',
+                    ExpiresAt = ?,
+                    UpdatedAt = GETDATE() 
+                WHERE JobID = ?
+            ");
+            return $stmt->execute([$expiresAt, $jobId]);
+        } else {
+            $stmt = $this->db->prepare("
+                UPDATE Jobs 
+                SET IsActive = 1, 
+                    IsRemovedByAdmin = 0, 
+                    AdminRemoveReason = NULL, 
+                    AdminReviewStatus = 'approved',
+                    ExpiresAt = CASE 
+                        WHEN ExpiresAt IS NOT NULL AND ExpiresAt <= GETDATE() THEN DATEADD(DAY, 7, GETDATE()) 
+                        ELSE ExpiresAt 
+                    END,
+                    UpdatedAt = GETDATE() 
+                WHERE JobID = ?
+            ");
+            return $stmt->execute([$jobId]);
+        }
+    }
+
+    /**
+     * Resubmit job for admin review after edit by employer
+     */
+    public function resubmitForReview($jobId, $employerId, $data)
+    {
+        $stmt = $this->db->prepare("
+            UPDATE Jobs SET
+                Title = ?, Description = ?, Requirements = ?, JobType = ?,
+                ExperienceLevel = ?, City = ?, SalaryMin = ?, SalaryMax = ?,
+                Skills = ?, ExpiresAt = ?, EmployerReviewNotes = ?,
+                AdminReviewStatus = 'pending_review',
+                IsActive = 0,
+                IsRemovedByAdmin = 1,
+                ResubmittedAt = GETDATE(),
+                UpdatedAt = GETDATE()
+            WHERE JobID = ? AND EmployerID = ?
+        ");
+        return $stmt->execute([
+            $data['title'],
+            $data['description'],
+            $data['requirements'] ?? null,
+            $data['job_type'] ?? 'full-time',
+            $data['experience_level'] ?? 'entry',
+            $data['city'] ?? null,
+            $data['salary_min'] ?: null,
+            $data['salary_max'] ?: null,
+            $data['skills'] ?? null,
+            $data['expires_at'] ?? null,
+            $data['employer_notes'] ?? null,
+            $jobId,
+            $employerId
+        ]);
+    }
+
+    /**
+     * Stop applications and zero out the timer (ExpiresAt = GETDATE())
+     */
+    public function stopApplications($jobId)
+    {
+        $stmt = $this->db->prepare("UPDATE Jobs SET IsActive = 0, ExpiresAt = GETDATE(), UpdatedAt = GETDATE() WHERE JobID = ?");
         return $stmt->execute([$jobId]);
     }
 
     /**
-     * Get all jobs (admin)
+     * Reopen job with optional new expiry
      */
-    public function getAll($search = null)
+    public function reopen($jobId, $newExpiresAt = null)
+    {
+        $stmt = $this->db->prepare("UPDATE Jobs SET IsActive = 1, IsRemovedByAdmin = 0, AdminRemoveReason = NULL, AdminReviewStatus = 'approved', ExpiresAt = ?, UpdatedAt = GETDATE() WHERE JobID = ?");
+        return $stmt->execute([$newExpiresAt, $jobId]);
+    }
+
+    /**
+     * Get all jobs (admin) with search and status filtering
+     */
+    public function getAll($search = null, $status = null)
     {
         $sql = "
             SELECT j.*, u.FullName AS EmployerName, ep.CompanyName,
@@ -153,16 +253,30 @@ class Job
             FROM Jobs j
             JOIN Users u ON j.EmployerID = u.UserID
             LEFT JOIN EmployerProfiles ep ON j.EmployerID = ep.UserID
+            WHERE 1=1
         ";
         $params = [];
 
         if ($search) {
-            $sql .= " WHERE j.Title LIKE ? OR ep.CompanyName LIKE ?";
+            $sql .= " AND (j.Title LIKE ? OR ep.CompanyName LIKE ? OR u.FullName LIKE ?)";
+            $params[] = "%{$search}%";
             $params[] = "%{$search}%";
             $params[] = "%{$search}%";
         }
 
-        $sql .= " ORDER BY j.PostedAt DESC";
+        if ($status === 'active') {
+            $sql .= " AND j.IsActive = 1 AND j.IsRemovedByAdmin = 0 AND (j.ExpiresAt IS NULL OR j.ExpiresAt > GETDATE())";
+        } elseif ($status === 'pending_review') {
+            $sql .= " AND j.AdminReviewStatus = 'pending_review'";
+        } elseif ($status === 'removed' || $status === 'removed_admin') {
+            $sql .= " AND j.IsRemovedByAdmin = 1 AND (j.AdminReviewStatus IS NULL OR j.AdminReviewStatus != 'pending_review')";
+        } elseif ($status === 'paused') {
+            $sql .= " AND j.IsActive = 0 AND j.IsRemovedByAdmin = 0";
+        } elseif ($status === 'expired') {
+            $sql .= " AND j.ExpiresAt IS NOT NULL AND j.ExpiresAt <= GETDATE() AND j.IsRemovedByAdmin = 0";
+        }
+
+        $sql .= " ORDER BY CASE WHEN j.AdminReviewStatus = 'pending_review' THEN 0 ELSE 1 END, j.PostedAt DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
@@ -175,8 +289,10 @@ class Job
     {
         $stmt = $this->db->query("
             SELECT
-                (SELECT COUNT(*) FROM Jobs WHERE IsActive = 1) AS ActiveJobs,
+                (SELECT COUNT(*) FROM Jobs WHERE IsActive = 1 AND IsRemovedByAdmin = 0 AND (ExpiresAt IS NULL OR ExpiresAt > GETDATE())) AS ActiveJobs,
                 (SELECT COUNT(*) FROM Jobs) AS TotalJobs,
+                (SELECT COUNT(*) FROM Jobs WHERE IsRemovedByAdmin = 1 AND (AdminReviewStatus IS NULL OR AdminReviewStatus != 'pending_review')) AS RemovedJobs,
+                (SELECT COUNT(*) FROM Jobs WHERE AdminReviewStatus = 'pending_review') AS PendingReviewJobs,
                 (SELECT COUNT(*) FROM Jobs WHERE PostedAt >= DATEADD(DAY, -7, GETDATE())) AS NewJobsThisWeek
         ");
         return $stmt->fetch();

@@ -95,13 +95,28 @@
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
+                            <?php $jobExpired = !empty($job['ExpiresAt']) && strtotime($job['ExpiresAt']) <= time(); ?>
                             <div class="job-footer">
                                 <span class="job-salary">
                                     <?= !empty($job['SalaryMin']) ? number_format($job['SalaryMin']) . (!empty($job['SalaryMax']) ? ' - ' . number_format($job['SalaryMax']) : '') . ' ' . htmlspecialchars($job['SalaryCurrency'] ?? 'ج.م') : 'راتب تنافسي' ?>
                                 </span>
-                                <span class="job-date"><?= date('d/m/Y', strtotime($job['PostedAt'])) ?></span>
+                                <?php if (!empty($job['ExpiresAt'])): ?>
+                                    <?php if ($jobExpired): ?>
+                                        <span class="job-date" style="color: var(--danger); font-weight: 600;">⛔ انتهى التقديم</span>
+                                    <?php else: ?>
+                                        <span class="job-date job-countdown" data-expires="<?= htmlspecialchars(date('c', strtotime($job['ExpiresAt']))) ?>" style="color: #c4712b; font-weight: 600;">
+                                            ⏳ <strong class="countdown-text"><?= date('d/m/Y', strtotime($job['ExpiresAt'])) ?></strong>
+                                        </span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="job-date"><?= date('d/m/Y', strtotime($job['PostedAt'])) ?></span>
+                                <?php endif; ?>
                             </div>
-                            <a href="/jobs/apply?id=<?= $job['JobID'] ?>" class="btn btn-primary btn-sm mt-2">قدّم على الوظيفة</a>
+                            <?php if ($jobExpired): ?>
+                                <button class="btn btn-secondary btn-sm mt-2" disabled style="opacity: 0.6; cursor: not-allowed; width: 100%;">انتهى موعد التقديم</button>
+                            <?php else: ?>
+                                <a href="/jobs/apply?id=<?= $job['JobID'] ?>" class="btn btn-primary btn-sm mt-2">قدّم على الوظيفة</a>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 <?php else: ?>

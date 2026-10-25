@@ -162,16 +162,19 @@
                         <small class="text-muted">افصل بين كل مهارة بفاصلة</small>
                     </div>
 
-                    <!-- Expiry -->
+                    <!-- Expiry (Deadline) -->
                     <div class="form-group">
-                        <label for="expiryDate">تاريخ انتهاء الإعلان</label>
+                        <label for="expiryDate">تاريخ وساعة انتهاء التقديم (الموعد النهائي) *</label>
                         <input 
-                            type="date" 
+                            type="datetime-local" 
                             id="expiryDate" 
                             name="expires_at" 
                             class="form-control"
                             dir="ltr"
+                            min="<?= date('Y-m-d\TH:i') ?>"
+                            required
                         >
+                        <small class="text-muted">اختر اليوم والساعة بدقة — بعد هذا التوقيت سيتوقف استقبال طلبات التقديم تلقائياً</small>
                     </div>
 
                     <div class="alert alert-danger" id="postJobError" style="display: none;">

@@ -59,29 +59,18 @@
                         <input type="hidden" name="application_id" value="<?= htmlspecialchars($application['ApplicationID']) ?>">
 
                     <!-- Date & Time -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="interviewDate">تاريخ المقابلة *</label>
-                            <input 
-                                type="date" 
-                                id="interviewDate" 
-                                name="interview_date" 
-                                class="form-control"
-                                required
-                                dir="ltr"
-                            >
-                        </div>
-                        <div class="form-group">
-                            <label for="interviewTime">الساعة *</label>
-                            <input 
-                                type="time" 
-                                id="interviewTime" 
-                                name="interview_time" 
-                                class="form-control"
-                                required
-                                dir="ltr"
-                            >
-                        </div>
+                    <div class="form-group">
+                        <label for="interviewDateTime">تاريخ وساعة المقابلة *</label>
+                        <input 
+                            type="datetime-local" 
+                            id="interviewDateTime" 
+                            name="interview_datetime" 
+                            class="form-control"
+                            required
+                            dir="ltr"
+                            min="<?= date('Y-m-d\TH:i') ?>"
+                        >
+                        <small class="text-muted">اختر اليوم والساعة بدقة — لا يمكن اختيار موعد قد مضى</small>
                     </div>
 
                     <!-- Location Type -->

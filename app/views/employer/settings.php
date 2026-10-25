@@ -45,9 +45,23 @@
                 <h2 class="card-title">🏢 بيانات الشركة</h2>
                 <p class="card-desc">عدّل بيانات الشركة الأساسية</p>
 
+                <?php if (!empty($pendingNameChange)): ?>
+                    <div class="alert alert-warning mb-3" style="display: flex; align-items: flex-start; gap: 12px; background: rgba(234, 179, 8, 0.12); border: 1.5px solid rgba(234, 179, 8, 0.35); border-radius: 10px; padding: 14px 16px;">
+                        <span style="font-size: 1.4rem;">⏳</span>
+                        <div>
+                            <strong style="color: #eab308; display: block; font-size: 0.95rem;">طلب تعديل اسم الشركة قيد المراجعة من الإدارة</strong>
+                            <p style="margin: 4px 0 0; color: var(--text-muted); font-size: 0.85rem;">
+                                طلبت تغيير اسم الشركة إلى: <strong style="color: var(--text-primary);"><?= htmlspecialchars($pendingNameChange['NewValue']) ?></strong>
+                                (بتاريخ: <?= date('d/m/Y H:i', strtotime($pendingNameChange['RequestedAt'])) ?>).
+                                سيتم تطبيق الاسم بمجرد مراجعة وموافقة الإدارة.
+                            </p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <form id="profileForm">
                     <div class="form-group">
-                        <label for="companyName">اسم الشركة</label>
+                        <label for="companyName">اسم الشركة <small style="color: var(--text-muted); font-size: 0.75rem;">(يتطلب موافقة الإدارة عند التعديل)</small></label>
                         <input type="text" id="companyName" name="company_name" class="form-control" value="<?= htmlspecialchars($user['CompanyName'] ?? $user['FullName'] ?? '') ?>" required>
                     </div>
 

@@ -19,6 +19,7 @@ class UserController
     {
         Auth::requireRole('user');
         $user = $this->userModel->getProfile(Auth::id());
+        $pendingNameChange = $this->userModel->getPendingNameChange(Auth::id(), 'FullName');
         require __DIR__ . '/../views/user/settings.php';
     }
 
@@ -28,6 +29,7 @@ class UserController
     public function updateProfile()
     {
         Auth::requireRole('user');
+        header('Content-Type: application/json');
 
         $data = [
             'name'      => trim($_POST['name'] ?? ''),
@@ -45,10 +47,22 @@ class UserController
             return;
         }
 
-        $this->userModel->updateProfile(Auth::id(), $data);
-        Session::set('user_name', $data['name']);
+        $currentUser = $this->userModel->findById(Auth::id());
+        $isNameChanged = ($data['name'] !== $currentUser['FullName']);
 
-        echo json_encode(['success' => true, 'message' => 'تم حفظ التغييرات ✅']);
+        // Update non-sensitive profile fields immediately
+        $this->userModel->updateUserProfileOnly(Auth::id(), $data);
+
+        if ($isNameChanged) {
+            $this->userModel->requestNameChange(Auth::id(), 'FullName', $currentUser['FullName'], $data['name']);
+            echo json_encode([
+                'success' => true,
+                'name_pending' => true,
+                'message' => 'تم حفظ البيانات! طلب تغيير الاسم إلى "' . $data['name'] . '" تم إرساله للإدارة للموافقة عليه ⏳'
+            ]);
+        } else {
+            echo json_encode(['success' => true, 'message' => 'تم حفظ التغييرات بنجاح ✅']);
+        }
     }
 
     /**

@@ -38,11 +38,23 @@ class Application
     public function getByUser($userId)
     {
         $stmt = $this->db->prepare("
-            SELECT ja.*, j.Title AS JobTitle, j.City, j.JobType, j.ExperienceLevel,
-                   ep.CompanyName
+            SELECT ja.*, 
+                   j.Title AS JobTitle, j.City, j.City AS JobCity, j.JobType, j.ExperienceLevel,
+                   ep.CompanyName, ep.CompanyWebsite, ep.Address AS CompanyAddress,
+                   uEmp.FullName AS EmployerName, uEmp.Email AS EmployerEmail,
+                   iv.InterviewID, iv.InterviewDate, iv.Location AS InterviewLocation,
+                   iv.LocationType AS InterviewLocationType, iv.MeetingLink,
+                   iv.Notes AS InterviewNotes, iv.Status AS InterviewStatus
             FROM JobApplications ja
             JOIN Jobs j ON ja.JobID = j.JobID
+            LEFT JOIN Users uEmp ON j.EmployerID = uEmp.UserID
             LEFT JOIN EmployerProfiles ep ON j.EmployerID = ep.UserID
+            OUTER APPLY (
+                SELECT TOP 1 *
+                FROM Interviews i
+                WHERE i.ApplicationID = ja.ApplicationID
+                ORDER BY i.InterviewDate DESC, i.InterviewID DESC
+            ) iv
             WHERE ja.UserID = ?
             ORDER BY ja.AppliedAt DESC
         ");
@@ -76,11 +88,12 @@ class Application
     {
         $stmt = $this->db->prepare("
             SELECT ja.*, j.Title AS JobTitle, u.FullName, u.Email,
-                   up.Phone, up.City
+                   up.Phone, up.City, up.YearsOfExp, c.FileName AS CVFile
             FROM JobApplications ja
             JOIN Jobs j ON ja.JobID = j.JobID
             JOIN Users u ON ja.UserID = u.UserID
             LEFT JOIN UserProfiles up ON ja.UserID = up.UserID
+            LEFT JOIN CVs c ON ja.CVID = c.CVID
             WHERE j.EmployerID = ?
             ORDER BY ja.AppliedAt DESC
         ");

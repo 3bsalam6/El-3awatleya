@@ -60,6 +60,27 @@
                 </div>
             </div>
 
+            <?php if (!empty($upcomingInterviews)): ?>
+                <div class="card mb-4" style="background: linear-gradient(135deg, rgba(74, 140, 92, 0.16), rgba(74, 140, 92, 0.05)); border: 1.5px solid rgba(74, 140, 92, 0.4); border-radius: 12px; padding: 20px 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <span style="font-size: 2.2rem;">🎉</span>
+                            <div>
+                                <span class="badge" style="background: #4a8c5c; color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;">مبروك! تم تحديد موعد مقابلة عمل</span>
+                                <h3 style="margin: 6px 0 4px 0; font-size: 1.15rem;">مقابلة لوظيفة <?= htmlspecialchars($upcomingInterviews[0]['JobTitle'] ?? '') ?> لدى <?= htmlspecialchars($upcomingInterviews[0]['CompanyName'] ?? 'الشركة') ?></h3>
+                                <p class="text-muted" style="margin: 0; font-size: 0.88rem;">
+                                    📅 الموعد: <?= date('d/m/Y - g:i A', strtotime($upcomingInterviews[0]['InterviewDate'])) ?> · 
+                                    <?= ($upcomingInterviews[0]['InterviewLocationType'] === 'online') ? '🌐 أونلاين عبر الإنترنت' : '🏢 بمقر الشركة' ?>
+                                </p>
+                            </div>
+                        </div>
+                        <a href="/my-applications" class="btn btn-primary" style="background: #4a8c5c; border-color: #4a8c5c; font-weight: 700;">
+                            عرض جميع تفاصيل المقابلة 👈
+                        </a>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <!-- Upload + Job Title -->
             <div class="dashboard-grid">
                 

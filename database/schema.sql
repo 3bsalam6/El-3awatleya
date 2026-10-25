@@ -21,6 +21,8 @@ CREATE TABLE Users (
     IsOTPEnabled    BIT             NOT NULL DEFAULT 0,
     IsBanned        BIT             NOT NULL DEFAULT 0,
     BanReason       NVARCHAR(500)   NULL,
+    ApprovalStatus  NVARCHAR(20)    NOT NULL DEFAULT 'pending' CHECK (ApprovalStatus IN ('pending', 'approved', 'rejected')),
+    RejectionReason NVARCHAR(500)   NULL,
     ProfilePicture  NVARCHAR(500)   NULL,
     CreatedAt       DATETIME2       NOT NULL DEFAULT GETDATE(),
     UpdatedAt       DATETIME2       NOT NULL DEFAULT GETDATE(),
@@ -115,6 +117,9 @@ CREATE TABLE Jobs (
     IsActive        BIT             NOT NULL DEFAULT 1,
     IsRemovedByAdmin BIT            NOT NULL DEFAULT 0,
     AdminRemoveReason NVARCHAR(500) NULL,
+    AdminReviewStatus NVARCHAR(30)  NULL DEFAULT 'approved',
+    ResubmittedAt   DATETIME2       NULL,
+    EmployerReviewNotes NVARCHAR(1000) NULL,
     PostedAt        DATETIME2       NOT NULL DEFAULT GETDATE(),
     ExpiresAt       DATETIME2       NULL,
     UpdatedAt       DATETIME2       NOT NULL DEFAULT GETDATE(),
@@ -289,10 +294,17 @@ CREATE TABLE ActivityLogs (
     IPAddress       NVARCHAR(45)    NULL,
     CreatedAt       DATETIME2       NOT NULL DEFAULT GETDATE(),
 
-    CONSTRAINT FK_ActivityLogs_Users
-        FOREIGN KEY (UserID) REFERENCES Users(UserID)
+  
+        
 );
 GO
+
+
+-- Recreate it with CASCADE DELETE
+ALTER TABLE dbo.ActivityLogs 
+ADD CONSTRAINT FK_ActivityLogs_Users 
+FOREIGN KEY (UserID) REFERENCES dbo.Users(UserID) 
+
 
 -- =============================================
 -- 14. Backups
@@ -398,6 +410,24 @@ CREATE TABLE RememberTokens (
 );
 GO
 
+
+-- =============================================
+-- 16. ProfileChangeRequests (مراجعة تعديل البيانات الحساسة مثل الاسم)
+-- =============================================
+CREATE TABLE ProfileChangeRequests (
+    RequestID   INT IDENTITY(1,1) PRIMARY KEY,
+    UserID      INT             NOT NULL,
+    FieldChanged NVARCHAR(50)   NOT NULL, -- 'FullName', 'CompanyName'
+    OldValue    NVARCHAR(255)   NOT NULL,
+    NewValue    NVARCHAR(255)   NOT NULL,
+    Status      NVARCHAR(30)    NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    AdminNotes  NVARCHAR(500)   NULL,
+    RequestedAt DATETIME2       NOT NULL DEFAULT GETDATE(),
+    ReviewedAt  DATETIME2       NULL,
+    ReviewedBy  INT             NULL,
+    CONSTRAINT FK_ProfileChangeRequests_Users FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+);
+GO
 
 -- =============================================
 -- SEED DATA

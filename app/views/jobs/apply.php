@@ -50,6 +50,17 @@
                     <span class="tag tag-salary">
                         <?= !empty($job['SalaryMin']) ? number_format($job['SalaryMin']) . (!empty($job['SalaryMax']) ? ' - ' . number_format($job['SalaryMax']) : '') . ' ' . htmlspecialchars($job['SalaryCurrency'] ?? 'ج.م') : 'راتب تنافسي' ?>
                     </span>
+                    <?php if (!empty($job['ExpiresAt'])): ?>
+                        <?php if (!empty($isExpired)): ?>
+                            <span class="tag" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">
+                                ⛔ انتهى التقديم
+                            </span>
+                        <?php else: ?>
+                            <span class="tag job-countdown" data-expires="<?= htmlspecialchars(date('c', strtotime($job['ExpiresAt']))) ?>" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);">
+                                ⏳ متبقي: <strong class="countdown-text">جاري الحساب...</strong>
+                            </span>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </div>
 
                 <div class="job-detail-section mt-3">
@@ -84,7 +95,34 @@
 
             <!-- Application Form -->
             <div class="card">
-                <?php if (!empty($alreadyApplied)): ?>
+                <?php if (!empty($isRemovedAdmin)): ?>
+                    <div class="alert alert-danger" style="padding: 32px; text-align: center; border-radius: var(--radius-md);">
+                        <span style="font-size: 2.5rem;">🚫</span>
+                        <h3 class="mt-2" style="color: var(--danger);">هذه الوظيفة غير متاحة حالياً</h3>
+                        <p class="text-muted mt-1">
+                            تم تعطيل إعلان هذه الوظيفة من قِبل إدارة المنصة لمخالفة سياسات النشر أو لإجراء مراجعة.
+                        </p>
+                        <a href="/jobs" class="btn btn-primary mt-3" style="display: inline-block;">تصفح وظائف أخرى</a>
+                    </div>
+                <?php elseif (!empty($isJobClosed)): ?>
+                    <div class="alert alert-warning" style="padding: 32px; text-align: center; border-radius: var(--radius-md); background: rgba(196, 113, 43, 0.1); border: 1px solid rgba(196, 113, 43, 0.3);">
+                        <span style="font-size: 2.5rem;">⏸️</span>
+                        <h3 class="mt-2" style="color: var(--accent);">تم إيقاف استقبال طلبات التقديم مؤقتاً</h3>
+                        <p class="text-muted mt-1">
+                            قام صاحب العمل بإيقاف استقبال عروض التقديم على هذه الوظيفة في الوقت الحالي.
+                        </p>
+                        <a href="/jobs" class="btn btn-primary mt-3" style="display: inline-block;">تصفح وظائف أخرى</a>
+                    </div>
+                <?php elseif (!empty($isExpired)): ?>
+                    <div class="alert alert-danger" style="padding: 32px; text-align: center; border-radius: var(--radius-md);">
+                        <span style="font-size: 2.5rem;">⛔</span>
+                        <h3 class="mt-2" style="color: var(--danger);">انتهى موعد التقديم على هذه الوظيفة</h3>
+                        <p class="text-muted mt-1">
+                            تم إغلاق باب التقديم تلقائياً بتاريخ <?= date('d/m/Y h:i A', strtotime($job['ExpiresAt'])) ?>. نتمنى لك التوفيق في فرص قادمة!
+                        </p>
+                        <a href="/jobs" class="btn btn-primary mt-3" style="display: inline-block;">تصفح وظائف أخرى</a>
+                    </div>
+                <?php elseif (!empty($alreadyApplied)): ?>
                     <div class="alert alert-success" style="padding: 24px; text-align: center;">
                         <span style="font-size: 2rem;">✅</span>
                         <h3 class="mt-2">لقد قدمت بالفعل على هذه الوظيفة!</h3>
@@ -93,7 +131,7 @@
                     </div>
                 <?php else: ?>
                     <h2 class="card-title">قدّم على الوظيفة دي</h2>
-                    <p class="card-desc">ارفع الـ CV بتاعك واكتب Cover Letter لو عاوز</p>
+                    <p class="card-desc">ارفع الـ CV بتاعك ووضح ليه الوظيفة دي مناسبة ليك</p>
 
                     <form id="applyForm">
                         <input type="hidden" name="job_id" value="<?= htmlspecialchars($job['JobID']) ?>">
@@ -113,15 +151,18 @@
                             <button type="button" class="remove-file" id="removeFile">x حذف</button>
                         </div>
 
-                        <!-- Cover Letter -->
+                        <!-- Why this job is suitable -->
                         <div class="form-group mt-3">
-                            <label for="coverLetter">Cover Letter (اختياري)</label>
+                            <label for="coverLetter">
+                                ليه الوظيفة دي مناسبة ليك؟ <span style="color: var(--danger);">*</span>
+                            </label>
                             <textarea 
                                 id="coverLetter" 
                                 name="cover_letter" 
                                 class="form-control form-textarea"
-                                placeholder="اكتب رسالة قصيرة توضح ليه انت مناسب للوظيفة دي..."
+                                placeholder="اكتب بالتفصيل ليه شايف نفسك مناسب للوظيفة دي ومهاراتك بتخدم متطلباتها..."
                                 rows="5"
+                                required
                             ></textarea>
                         </div>
 

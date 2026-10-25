@@ -40,6 +40,22 @@
                 <p class="page-subtitle">مراقبة النشاط وإدارة المنصة</p>
             </div>
 
+            <!-- Pending Approvals Alert -->
+            <?php if (!empty($stats['PendingUsers'])): ?>
+                <div class="alert alert-warning mb-3" style="display: flex; justify-content: space-between; align-items: center; background: rgba(234, 179, 8, 0.15); border: 1.5px solid rgba(234, 179, 8, 0.4); border-radius: 12px; padding: 14px 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.6rem;">⚠️</span>
+                        <div>
+                            <strong style="color: #eab308; font-size: 1.05rem;">يوجد <?= $stats['PendingUsers'] ?> حساب جديد بانتظار الموافقة أو الرفض!</strong>
+                            <p style="margin: 2px 0 0; color: var(--text-muted); font-size: 0.85rem;">لحظر الحسابات الوهمية، راجع الحسابات المعلقة وقرر قبولها أو رفضها مع إرسال إشعار فوري عبر الإيميل.</p>
+                        </div>
+                    </div>
+                    <a href="/admin/users" class="btn btn-warning btn-sm" style="font-weight: bold; background: #eab308; color: #111; border: none; padding: 8px 18px; border-radius: 8px; text-decoration: none;">
+                        مراجعة الحسابات المعلقة ←
+                    </a>
+                </div>
+            <?php endif; ?>
+
             <!-- Stats -->
             <div class="stats-row" style="grid-template-columns: repeat(4, 1fr);">
                 <div class="stat-card">

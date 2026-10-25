@@ -61,6 +61,17 @@ class AuthController
             Session::redirect('/login');
         }
 
+        // Check if account is approved by admin
+        $approvalStatus = $user['ApprovalStatus'] ?? 'approved';
+        if ($approvalStatus === 'pending') {
+            Session::flash('error', 'حسابك ما زال قيد المراجعة والموافقة من قِبل الإدارة. سنرسل لك إشعاراً عبر البريد الإلكتروني فور تفعيل حسابك.');
+            Session::redirect('/login');
+        } elseif ($approvalStatus === 'rejected') {
+            $reason = !empty($user['RejectionReason']) ? " السبب: {$user['RejectionReason']}" : '';
+            Session::flash('error', "تم رفض طلب إنشاء الحساب من قِبل إدارة الموقع.{$reason}");
+            Session::redirect('/login');
+        }
+
         // Check if OTP is needed
         $needsOTP = !empty($user['IsOTPEnabled']);
 
@@ -150,11 +161,18 @@ class AuthController
 
             $userId = $this->userModel->create($data);
 
-            $user = $this->userModel->findById($userId);
-            Auth::login($user);
+            // Log activity
+            try {
+                $db = Database::getInstance()->getConnection();
+                $stmt = $db->prepare("INSERT INTO ActivityLogs (UserID, Action, Details) VALUES (?, 'register', ?)");
+                $roleDesc = ($role === 'employer') ? 'صاحب عمل' : 'باحث عن عمل';
+                $stmt->execute([$userId, "تسجيل حساب جديد كـ {$roleDesc} (في انتظار موافقة الإدارة)"]);
+            } catch (\Exception $e) {
+                // ignore log error
+            }
 
-            Session::flash('success', 'تم التسجيل بنجاح! أهلاً بيك في العواطلية 🎉');
-            $this->redirectByRole();
+            Session::flash('success', 'تم تسجيل طلب حسابك بنجاح! 🎉 حسابك الآن قيد مراجعة وتأكيد الإدارة لمنع الحسابات الوهمية. سنرسل لك إشعاراً عبر بريدك الإلكتروني فور الموافقة عليه.');
+            Session::redirect('/login');
         } catch (\Exception $e) {
             Session::flash('error', 'حصل خطأ: ' . $e->getMessage());
             Session::redirect('/register');
@@ -275,7 +293,7 @@ class AuthController
         $user = $this->userModel->checkUserExistsForReset($email);
 
         if (!$user) {
-            Session::flash('error', 'الإيميل ده مش مسجل عندنا أو مش حساب مستخدم عادي');
+            Session::flash('error', 'الإيميل ده مش مسجل عندنا أو الحساب غير مفعل');
             Session::redirect('/forgot-password');
         }
 

@@ -5,6 +5,7 @@
 
 define('APP_NAME', 'العواطلية');
 define('APP_URL', 'http://localhost:8000');
+date_default_timezone_set('Africa/Cairo');
 
 // Session
 define('SESSION_NAME', 'el3awatleya_session');

@@ -109,7 +109,30 @@ class User
     }
 
     /**
-     * Update non-sensitive user profile fields only
+     * Update non-sensitive user profile fields only (without modifying sensitive fields like Phone)
+     */
+    public function updateUserProfileNonSensitive($userId, $data)
+    {
+        $stmt = $this->db->prepare("
+            UPDATE UserProfiles SET 
+                City = ?, Bio = ?, YearsOfExp = ?,
+                LinkedInURL = ?, GitHubURL = ?, PortfolioURL = ?,
+                UpdatedAt = GETDATE()
+            WHERE UserID = ?
+        ");
+        return $stmt->execute([
+            $data['city'] ?? null,
+            $data['bio'] ?? null,
+            $data['years_exp'] ?? 0,
+            $data['linkedin'] ?? null,
+            $data['github'] ?? null,
+            $data['portfolio'] ?? null,
+            $userId
+        ]);
+    }
+
+    /**
+     * Update user profile fields (including phone if provided)
      */
     public function updateUserProfileOnly($userId, $data)
     {
@@ -153,6 +176,49 @@ class User
             $data['description'] ?? null,
             $userId
         ]);
+    }
+
+    /**
+     * Update user's profile picture
+     */
+    public function updateProfilePicture($userId, $filePath)
+    {
+        $stmt = $this->db->prepare("UPDATE Users SET ProfilePicture = ?, UpdatedAt = GETDATE() WHERE UserID = ?");
+        return $stmt->execute([$filePath, $userId]);
+    }
+
+    /**
+     * Delete user's profile picture
+     */
+    public function deleteProfilePicture($userId)
+    {
+        $stmt = $this->db->prepare("UPDATE Users SET ProfilePicture = NULL, UpdatedAt = GETDATE() WHERE UserID = ?");
+        return $stmt->execute([$userId]);
+    }
+
+    /**
+     * Update employer's company logo
+     */
+    public function updateCompanyLogo($userId, $filePath)
+    {
+        $stmt = $this->db->prepare("UPDATE EmployerProfiles SET CompanyLogo = ?, UpdatedAt = GETDATE() WHERE UserID = ?");
+        $res = $stmt->execute([$filePath, $userId]);
+        // Also update Users.ProfilePicture for consistency across navbars
+        $stmtUser = $this->db->prepare("UPDATE Users SET ProfilePicture = ?, UpdatedAt = GETDATE() WHERE UserID = ?");
+        $stmtUser->execute([$filePath, $userId]);
+        return $res;
+    }
+
+    /**
+     * Delete employer's company logo
+     */
+    public function deleteCompanyLogo($userId)
+    {
+        $stmt = $this->db->prepare("UPDATE EmployerProfiles SET CompanyLogo = NULL, UpdatedAt = GETDATE() WHERE UserID = ?");
+        $res = $stmt->execute([$userId]);
+        $stmtUser = $this->db->prepare("UPDATE Users SET ProfilePicture = NULL, UpdatedAt = GETDATE() WHERE UserID = ?");
+        $stmtUser->execute([$userId]);
+        return $res;
     }
 
     /**
@@ -330,6 +396,23 @@ class User
     }
 
     /**
+     * Get all pending sensitive data change requests for a user mapped by field name
+     */
+    public function getPendingRequestsForUser($userId)
+    {
+        $stmt = $this->db->prepare("SELECT * FROM ProfileChangeRequests WHERE UserID = ? AND Status = 'pending' ORDER BY RequestedAt DESC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($rows as $r) {
+            if (!isset($map[$r['FieldChanged']])) {
+                $map[$r['FieldChanged']] = $r;
+            }
+        }
+        return $map;
+    }
+
+    /**
      * Get pending sensitive data change request for user
      */
     public function getPendingNameChange($userId, $field = null)
@@ -390,6 +473,12 @@ class User
             $upEmp->execute([$newVal, $userId]);
             $upUser = $this->db->prepare("UPDATE Users SET FullName = ?, UpdatedAt = GETDATE() WHERE UserID = ?");
             $upUser->execute([$newVal, $userId]);
+        } elseif ($field === 'Email') {
+            $upUser = $this->db->prepare("UPDATE Users SET Email = ?, UpdatedAt = GETDATE() WHERE UserID = ?");
+            $upUser->execute([$newVal, $userId]);
+        } elseif ($field === 'Phone') {
+            $upProfile = $this->db->prepare("UPDATE UserProfiles SET Phone = ?, UpdatedAt = GETDATE() WHERE UserID = ?");
+            $upProfile->execute([$newVal, $userId]);
         }
 
         $upReq = $this->db->prepare("UPDATE ProfileChangeRequests SET Status = 'approved', ReviewedAt = GETDATE(), ReviewedBy = ? WHERE RequestID = ?");

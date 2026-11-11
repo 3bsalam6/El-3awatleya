@@ -55,6 +55,24 @@ class EmployerController
         Auth::requireRole('employer');
         header('Content-Type: application/json');
 
+        $salaryMin = (isset($_POST['salary_min']) && $_POST['salary_min'] !== '') ? (float)$_POST['salary_min'] : null;
+        $salaryMax = (isset($_POST['salary_max']) && $_POST['salary_max'] !== '') ? (float)$_POST['salary_max'] : null;
+
+        if ($salaryMin !== null && $salaryMin < 0) {
+            echo json_encode(['success' => false, 'message' => 'الحد الأدنى للمرتب لا يمكن أن يكون بالسالب']);
+            return;
+        }
+
+        if ($salaryMax !== null && $salaryMax < 0) {
+            echo json_encode(['success' => false, 'message' => 'الحد الأقصى للمرتب لا يمكن أن يكون بالسالب']);
+            return;
+        }
+
+        if ($salaryMin !== null && $salaryMax !== null && $salaryMin > $salaryMax) {
+            echo json_encode(['success' => false, 'message' => 'الحد الأدنى للمرتب لا يمكن أن يكون أكبر من الحد الأقصى']);
+            return;
+        }
+
         $data = [
             'employer_id' => Auth::id(),
             'title' => trim($_POST['title'] ?? ''),
@@ -63,8 +81,8 @@ class EmployerController
             'job_type' => $_POST['job_type'] ?? 'full-time',
             'experience_level' => $_POST['experience_level'] ?? 'entry',
             'city' => trim($_POST['city'] ?? ''),
-            'salary_min' => !empty($_POST['salary_min']) ? (float)$_POST['salary_min'] : null,
-            'salary_max' => !empty($_POST['salary_max']) ? (float)$_POST['salary_max'] : null,
+            'salary_min' => $salaryMin,
+            'salary_max' => $salaryMax,
             'skills' => trim($_POST['skills'] ?? ''),
             'expires_at' => null,
         ];
@@ -131,6 +149,24 @@ class EmployerController
             return;
         }
 
+        $salaryMin = (isset($_POST['salary_min']) && $_POST['salary_min'] !== '') ? (float)$_POST['salary_min'] : null;
+        $salaryMax = (isset($_POST['salary_max']) && $_POST['salary_max'] !== '') ? (float)$_POST['salary_max'] : null;
+
+        if ($salaryMin !== null && $salaryMin < 0) {
+            echo json_encode(['success' => false, 'message' => 'الحد الأدنى للمرتب لا يمكن أن يكون بالسالب']);
+            return;
+        }
+
+        if ($salaryMax !== null && $salaryMax < 0) {
+            echo json_encode(['success' => false, 'message' => 'الحد الأقصى للمرتب لا يمكن أن يكون بالسالب']);
+            return;
+        }
+
+        if ($salaryMin !== null && $salaryMax !== null && $salaryMin > $salaryMax) {
+            echo json_encode(['success' => false, 'message' => 'الحد الأدنى للمرتب لا يمكن أن يكون أكبر من الحد الأقصى']);
+            return;
+        }
+
         $data = [
             'title' => trim($_POST['title'] ?? ''),
             'description' => trim($_POST['description'] ?? ''),
@@ -138,8 +174,8 @@ class EmployerController
             'job_type' => $_POST['job_type'] ?? 'full-time',
             'experience_level' => $_POST['experience_level'] ?? 'entry',
             'city' => trim($_POST['city'] ?? ''),
-            'salary_min' => !empty($_POST['salary_min']) ? (float)$_POST['salary_min'] : null,
-            'salary_max' => !empty($_POST['salary_max']) ? (float)$_POST['salary_max'] : null,
+            'salary_min' => $salaryMin,
+            'salary_max' => $salaryMax,
             'skills' => trim($_POST['skills'] ?? ''),
             'employer_notes' => trim($_POST['employer_notes'] ?? ''),
             'expires_at' => null,
@@ -233,7 +269,20 @@ class EmployerController
         }
 
         $appModel->updateStatus($appId, $status);
-        echo json_encode(['success' => true, 'message' => 'تم تحديث الحالة ✅']);
+
+        // Send email notification to candidate if status changed
+        if (!empty($application['Email']) && in_array($status, ['accepted', 'shortlisted', 'rejected', 'reviewed'])) {
+            $companyName = !empty($application['CompanyName']) ? $application['CompanyName'] : 'الشركة المعلنة';
+            Mailer::sendApplicationStatusNotification(
+                $application['Email'],
+                $application['FullName'],
+                $application['JobTitle'],
+                $companyName,
+                $status
+            );
+        }
+
+        echo json_encode(['success' => true, 'message' => 'تم تحديث الحالة وإرسال إشعار للمتقدم عبر الإيميل ✅']);
     }
 
     /**
@@ -247,6 +296,10 @@ class EmployerController
         $appId = $_GET['application_id'] ?? null;
         $appModel = new Application();
         $application = $appId ? $appModel->findById($appId) : null;
+
+        if ($application && $application['EmployerID'] != Auth::id()) {
+            $application = null;
+        }
 
         require __DIR__ . '/../views/employer/interview.php';
     }
@@ -285,6 +338,12 @@ class EmployerController
             return;
         }
 
+        // Handle logo upload if included in profile form
+        if ((isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) ||
+            (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK)) {
+            $this->processLogoUpload(Auth::id());
+        }
+
         $currentProfile = $this->userModel->getProfile(Auth::id());
         $currentCompanyName = $currentProfile['CompanyName'] ?? $currentProfile['FullName'] ?? '';
         $isNameChanged = ($data['company_name'] !== $currentCompanyName);
@@ -302,6 +361,79 @@ class EmployerController
         } else {
             echo json_encode(['success' => true, 'message' => 'تم حفظ التغييرات بنجاح ✅']);
         }
+    }
+
+    /**
+     * Upload employer company logo via AJAX
+     */
+    public function uploadLogo()
+    {
+        Auth::requireRole('employer');
+        header('Content-Type: application/json');
+
+        $res = $this->processLogoUpload(Auth::id());
+        echo json_encode($res);
+    }
+
+    /**
+     * Process company logo upload helper
+     */
+    private function processLogoUpload($userId)
+    {
+        $file = $_FILES['logo'] ?? ($_FILES['avatar'] ?? null);
+        if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'message' => 'لم يتم تحديد أي صورة صالحة للرفع'];
+        }
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        if (!in_array($ext, $allowed)) {
+            return ['success' => false, 'message' => 'نوع الملف غير مدعوم. المسموح: JPG, PNG, WEBP, GIF'];
+        }
+
+        if ($file['size'] > 5 * 1024 * 1024) {
+            return ['success' => false, 'message' => 'حجم الصورة كبير جداً (الحد الأقصى: 5 ميجابايت)'];
+        }
+
+        $uploadDir = __DIR__ . '/../../public/uploads/avatars/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $fileName = 'logo_' . $userId . '_' . time() . '.' . $ext;
+        $destPath = $uploadDir . $fileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+            return ['success' => false, 'message' => 'فشل في حفظ اللوجو على الخادم'];
+        }
+
+        $webPath = '/public/uploads/avatars/' . $fileName;
+        $this->userModel->updateCompanyLogo($userId, $webPath);
+
+        return [
+            'success' => true,
+            'logo_url' => $webPath,
+            'avatar_url' => $webPath,
+            'message' => 'تم رفع وتحديث لوجو الشركة بنجاح! 🏢'
+        ];
+    }
+
+    /**
+     * Delete employer company logo
+     */
+    public function deleteLogo()
+    {
+        Auth::requireRole('employer');
+        header('Content-Type: application/json');
+
+        $userId = Auth::id();
+        $this->userModel->deleteCompanyLogo($userId);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'تم حذف اللوجو واستعادة الرمز الافتراضي بنجاح'
+        ]);
     }
 
     /**
@@ -345,56 +477,160 @@ class EmployerController
         }
 
         $interviewDateTime = date('Y-m-d H:i:s', $interviewTimestamp);
-        if ($locationType === 'online' && empty($location)) {
+
+        // Validate location & meeting link based on locationType (MeetingLink is NOT nullable for online/hybrid)
+        if ($locationType === 'online') {
+            if (empty($meetingLink)) {
+                echo json_encode(['success' => false, 'message' => 'رابط المقابلة أونلاين مطلوب (مثل رابط Google Meet أو Zoom) ولا يمكن تركه فارغاً']);
+                return;
+            }
             $location = 'أونلاين عبر الإنترنت';
+        } elseif ($locationType === 'hybrid') {
+            if (empty($location)) {
+                echo json_encode(['success' => false, 'message' => 'عنوان ومقر المقابلة مطلوب عند اختيار مقابلة هايبرد']);
+                return;
+            }
+            if (empty($meetingLink)) {
+                echo json_encode(['success' => false, 'message' => 'رابط المقابلة أونلاين مطلوب عند اختيار مقابلة هايبرد ولا يمكن تركه فارغاً']);
+                return;
+            }
+        } else { // onsite
+            if (empty($location)) {
+                echo json_encode(['success' => false, 'message' => 'عنوان ومقر المقابلة مطلوب']);
+                return;
+            }
+            $meetingLink = null;
         }
 
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("
-            INSERT INTO Interviews (ApplicationID, JobID, EmployerID, CandidateID, InterviewDate, Location, LocationType, MeetingLink, Notes, Status, CreatedAt, UpdatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', GETDATE(), GETDATE())
-        ");
-        $stmt->execute([
-            $appId,
-            $application['JobID'],
-            Auth::id(),
-            $application['UserID'],
-            $interviewDateTime,
-            $location ?: 'مكتب الشركة',
-            $locationType,
-            $meetingLink ?: null,
-            $notes ?: null
-        ]);
 
-        // Update application status to interview
-        $appModel->updateStatus($appId, 'interview');
+        // Check if an existing interview already exists for this application
+        $checkStmt = $db->prepare("SELECT TOP 1 * FROM Interviews WHERE ApplicationID = ? ORDER BY InterviewDate DESC, InterviewID DESC");
+        $checkStmt->execute([$appId]);
+        $existingInterview = $checkStmt->fetch();
 
-        // Send email invitation to candidate
-        if (!empty($application['Email'])) {
-            try {
-                $employerUser = $this->userModel->getProfile(Auth::id());
-                $companyName = $employerUser['CompanyName'] ?? $employerUser['FullName'] ?? 'الشركة';
-                $locationOrLink = ($locationType === 'online') ? ($meetingLink ?: $location) : $location;
-                Mailer::sendInterviewInvitation(
-                    $application['Email'],
-                    $application['FullName'],
-                    $application['JobTitle'],
-                    $companyName,
-                    $interviewDateTime,
-                    $locationType,
-                    $locationOrLink,
-                    $notes
-                );
-            } catch (\Exception $e) {
-                error_log('Failed to send interview email: ' . $e->getMessage());
+        $employerUser = $this->userModel->getProfile(Auth::id());
+        $companyName = $employerUser['CompanyName'] ?? $employerUser['FullName'] ?? 'الشركة';
+
+        if ($existingInterview) {
+            // ===========================
+            // EDIT / UPDATE EXISTING INTERVIEW
+            // ===========================
+            $oldDateTime = $existingInterview['InterviewDate'];
+            $interviewId = $existingInterview['InterviewID'];
+
+            $updateStmt = $db->prepare("
+                UPDATE Interviews
+                SET InterviewDate = ?,
+                    Location = ?,
+                    LocationType = ?,
+                    MeetingLink = ?,
+                    Notes = ?,
+                    Status = 'scheduled',
+                    UpdatedAt = GETDATE()
+                WHERE InterviewID = ?
+            ");
+            $updateStmt->execute([
+                $interviewDateTime,
+                $location ?: 'مكتب الشركة',
+                $locationType,
+                $meetingLink ?: null,
+                $notes ?: null,
+                $interviewId
+            ]);
+
+            // Ensure status is interview
+            $appModel->updateStatus($appId, 'interview');
+
+            // Send edit / update notification email to candidate
+            $emailSent = false;
+            if (!empty($application['Email'])) {
+                try {
+                    $emailSent = Mailer::sendInterviewUpdated(
+                        $application['Email'],
+                        $application['FullName'],
+                        $application['JobTitle'],
+                        $companyName,
+                        $interviewDateTime,
+                        $locationType,
+                        $location ?: 'مكتب الشركة',
+                        $meetingLink ?: null,
+                        $notes,
+                        $oldDateTime
+                    );
+                } catch (\Exception $e) {
+                    error_log('Failed to send interview update email: ' . $e->getMessage());
+                }
             }
+
+            // Log activity
+            try {
+                $logStmt = $db->prepare("INSERT INTO ActivityLogs (UserID, Action, EntityType, EntityID, Details, CreatedAt) VALUES (?, 'update_interview', 'Interview', ?, ?, GETDATE())");
+                $logStmt->execute([Auth::id(), $appId, 'تم تعديل موعد مقابلة للمتقدم ' . ($application['FullName'] ?? '') . ' على وظيفة ' . ($application['JobTitle'] ?? '')]);
+            } catch (\Exception $e) {}
+
+            echo json_encode([
+                'success' => true,
+                'is_edit' => true,
+                'email_sent' => $emailSent,
+                'message' => 'تم تعديل موعد وتفاصيل المقابلة بنجاح وإرسال التفاصيل المعدلة للمتقدم عبر البريد الإلكتروني! 🎉'
+            ]);
+        } else {
+            // ===========================
+            // CREATE NEW INTERVIEW
+            // ===========================
+            $insertStmt = $db->prepare("
+                INSERT INTO Interviews (ApplicationID, JobID, EmployerID, CandidateID, InterviewDate, Location, LocationType, MeetingLink, Notes, Status, CreatedAt, UpdatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', GETDATE(), GETDATE())
+            ");
+            $insertStmt->execute([
+                $appId,
+                $application['JobID'],
+                Auth::id(),
+                $application['UserID'],
+                $interviewDateTime,
+                $location ?: 'مكتب الشركة',
+                $locationType,
+                $meetingLink ?: null,
+                $notes ?: null
+            ]);
+
+            // Update application status to interview
+            $appModel->updateStatus($appId, 'interview');
+
+            // Send invitation email to candidate
+            $emailSent = false;
+            if (!empty($application['Email'])) {
+                try {
+                    $emailSent = Mailer::sendInterviewInvitation(
+                        $application['Email'],
+                        $application['FullName'],
+                        $application['JobTitle'],
+                        $companyName,
+                        $interviewDateTime,
+                        $locationType,
+                        $location ?: 'مكتب الشركة',
+                        $meetingLink ?: null,
+                        $notes
+                    );
+                } catch (\Exception $e) {
+                    error_log('Failed to send interview email: ' . $e->getMessage());
+                }
+            }
+
+            // Log activity
+            try {
+                $logStmt = $db->prepare("INSERT INTO ActivityLogs (UserID, Action, EntityType, EntityID, Details, CreatedAt) VALUES (?, 'schedule_interview', 'Interview', ?, ?, GETDATE())");
+                $logStmt->execute([Auth::id(), $appId, 'تم تحديد موعد مقابلة للمتقدم ' . ($application['FullName'] ?? '') . ' على وظيفة ' . ($application['JobTitle'] ?? '')]);
+            } catch (\Exception $e) {}
+
+            echo json_encode([
+                'success' => true,
+                'is_edit' => false,
+                'email_sent' => $emailSent,
+                'message' => 'تم تحديد المقابلة بنجاح وإرسال التفاصيل للمتقدم عبر البريد الإلكتروني! 🎉'
+            ]);
         }
-
-        // Log activity
-        $logStmt = $db->prepare("INSERT INTO ActivityLogs (UserID, Action, EntityType, EntityID, Details, CreatedAt) VALUES (?, 'schedule_interview', 'Interview', ?, ?, GETDATE())");
-        $logStmt->execute([Auth::id(), $appId, 'تم تحديد موعد مقابلة للمتقدم ' . ($application['FullName'] ?? '') . ' على وظيفة ' . ($application['JobTitle'] ?? '')]);
-
-        echo json_encode(['success' => true, 'message' => 'تم تحديد المقابلة بنجاح وإرسال التفاصيل للمتقدم! 🎉']);
     }
 
     /**
@@ -441,18 +677,26 @@ class EmployerController
         $notes = trim($_POST['notes'] ?? '');
 
         if ($locationType === 'online') {
-            if (empty($meetingLink) && empty($location)) {
-                echo json_encode(['success' => false, 'message' => 'برجاء إدخال رابط المقابلة الأونلاين']);
+            if (empty($meetingLink)) {
+                echo json_encode(['success' => false, 'message' => 'رابط المقابلة أونلاين مطلوب (مثل رابط Google Meet أو Zoom) ولا يمكن تركه فارغاً']);
                 return;
             }
+            $location = 'أونلاين عبر الإنترنت';
+        } elseif ($locationType === 'hybrid') {
             if (empty($location)) {
-                $location = 'أونلاين عبر الإنترنت';
+                echo json_encode(['success' => false, 'message' => 'عنوان ومقر المقابلة مطلوب عند اختيار مقابلة هايبرد']);
+                return;
             }
-        } else {
+            if (empty($meetingLink)) {
+                echo json_encode(['success' => false, 'message' => 'رابط المقابلة أونلاين مطلوب عند اختيار مقابلة هايبرد ولا يمكن تركه فارغاً']);
+                return;
+            }
+        } else { // onsite
             if (empty($location)) {
                 echo json_encode(['success' => false, 'message' => 'برجاء إدخال عنوان ومقر المقابلة بالتفصيل']);
                 return;
             }
+            $meetingLink = null;
         }
 
         $interviewDateTime = date('Y-m-d H:i:s', $interviewTimestamp);
@@ -473,42 +717,93 @@ class EmployerController
                 continue;
             }
 
-            // Insert into Interviews
-            $stmt = $db->prepare("
-                INSERT INTO Interviews (ApplicationID, JobID, EmployerID, CandidateID, InterviewDate, Location, LocationType, MeetingLink, Notes, Status, CreatedAt, UpdatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', GETDATE(), GETDATE())
-            ");
-            $stmt->execute([
-                $appId,
-                $application['JobID'],
-                Auth::id(),
-                $application['UserID'],
-                $interviewDateTime,
-                $location,
-                $locationType,
-                $meetingLink ?: null,
-                $notes ?: null
-            ]);
+            // Check if interview already exists for this application
+            $checkStmt = $db->prepare("SELECT TOP 1 * FROM Interviews WHERE ApplicationID = ? ORDER BY InterviewDate DESC, InterviewID DESC");
+            $checkStmt->execute([$appId]);
+            $existingInterview = $checkStmt->fetch();
 
-            // Update application status to interview
-            $appModel->updateStatus($appId, 'interview');
+            if ($existingInterview) {
+                $oldDateTime = $existingInterview['InterviewDate'];
+                $stmt = $db->prepare("
+                    UPDATE Interviews
+                    SET InterviewDate = ?,
+                        Location = ?,
+                        LocationType = ?,
+                        MeetingLink = ?,
+                        Notes = ?,
+                        Status = 'scheduled',
+                        UpdatedAt = GETDATE()
+                    WHERE InterviewID = ?
+                ");
+                $stmt->execute([
+                    $interviewDateTime,
+                    $location,
+                    $locationType,
+                    $meetingLink ?: null,
+                    $notes ?: null,
+                    $existingInterview['InterviewID']
+                ]);
 
-            // Send notification email to candidate
-            if (!empty($application['Email'])) {
-                try {
-                    $locationOrLink = ($locationType === 'online') ? ($meetingLink ?: $location) : $location;
-                    Mailer::sendInterviewInvitation(
-                        $application['Email'],
-                        $application['FullName'],
-                        $application['JobTitle'],
-                        $companyName,
-                        $interviewDateTime,
-                        $locationType,
-                        $locationOrLink,
-                        $notes
-                    );
-                } catch (\Exception $e) {
-                    error_log('Failed to send bulk interview email: ' . $e->getMessage());
+                // Update application status to interview
+                $appModel->updateStatus($appId, 'interview');
+
+                // Send update email to candidate
+                if (!empty($application['Email'])) {
+                    try {
+                        Mailer::sendInterviewUpdated(
+                            $application['Email'],
+                            $application['FullName'],
+                            $application['JobTitle'],
+                            $companyName,
+                            $interviewDateTime,
+                            $locationType,
+                            $location,
+                            $meetingLink ?: null,
+                            $notes,
+                            $oldDateTime
+                        );
+                    } catch (\Exception $e) {
+                        error_log('Failed to send bulk interview update email: ' . $e->getMessage());
+                    }
+                }
+            } else {
+                // Insert into Interviews
+                $stmt = $db->prepare("
+                    INSERT INTO Interviews (ApplicationID, JobID, EmployerID, CandidateID, InterviewDate, Location, LocationType, MeetingLink, Notes, Status, CreatedAt, UpdatedAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', GETDATE(), GETDATE())
+                ");
+                $stmt->execute([
+                    $appId,
+                    $application['JobID'],
+                    Auth::id(),
+                    $application['UserID'],
+                    $interviewDateTime,
+                    $location,
+                    $locationType,
+                    $meetingLink ?: null,
+                    $notes ?: null
+                ]);
+
+                // Update application status to interview
+                $appModel->updateStatus($appId, 'interview');
+
+                // Send invitation email to candidate
+                if (!empty($application['Email'])) {
+                    try {
+                        Mailer::sendInterviewInvitation(
+                            $application['Email'],
+                            $application['FullName'],
+                            $application['JobTitle'],
+                            $companyName,
+                            $interviewDateTime,
+                            $locationType,
+                            $location,
+                            $meetingLink ?: null,
+                            $notes
+                        );
+                    } catch (\Exception $e) {
+                        error_log('Failed to send bulk interview email: ' . $e->getMessage());
+                    }
                 }
             }
 

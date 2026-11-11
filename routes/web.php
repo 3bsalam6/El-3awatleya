@@ -36,6 +36,8 @@ $router->get('/enhancements', [UserController::class, 'enhancements']);
 $router->post('/enhancements', [UserController::class, 'requestEnhancement']);
 $router->get('/settings', [UserController::class, 'settings']);
 $router->post('/settings/profile', [UserController::class, 'updateProfile']);
+$router->post('/settings/avatar', [UserController::class, 'uploadAvatar']);
+$router->post('/settings/avatar/delete', [UserController::class, 'deleteAvatar']);
 $router->post('/settings/email', [UserController::class, 'changeEmail']);
 $router->post('/settings/password', [UserController::class, 'changePassword']);
 $router->post('/settings/otp', [UserController::class, 'toggleOTP']);
@@ -58,6 +60,8 @@ $router->get('/employer/interview', [EmployerController::class, 'showInterview']
 $router->post('/employer/interview', [EmployerController::class, 'scheduleInterview']);
 $router->get('/employer/settings', [EmployerController::class, 'settings']);
 $router->post('/employer/settings/profile', [EmployerController::class, 'updateProfile']);
+$router->post('/employer/settings/logo', [EmployerController::class, 'uploadLogo']);
+$router->post('/employer/settings/logo/delete', [EmployerController::class, 'deleteLogo']);
 $router->post('/employer/settings/email', [UserController::class, 'changeEmail']);
 $router->post('/employer/settings/password', [UserController::class, 'changePassword']);
 $router->post('/employer/settings/otp', [UserController::class, 'toggleOTP']);

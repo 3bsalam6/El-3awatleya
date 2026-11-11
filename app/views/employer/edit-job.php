@@ -24,7 +24,13 @@
         </div>
         <div class="navbar-actions">
             <a href="/employer/settings" class="user-pill employer-pill">
-                <div class="user-avatar employer-avatar"><?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?></div>
+                <div class="user-avatar employer-avatar">
+                    <?php if (!empty($user['CompanyLogo']) || !empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['CompanyLogo'] ?? $user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        <?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?>
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars($user['CompanyName'] ?? $user['FullName'] ?? 'شركة') ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
@@ -162,8 +168,11 @@
                                 name="salary_min" 
                                 class="form-control" 
                                 placeholder="5000"
+                                min="0"
+                                step="100"
                                 dir="ltr"
                                 value="<?= !empty($job['SalaryMin']) ? (int)$job['SalaryMin'] : '' ?>"
+                                oninput="if(this.value < 0) this.value = 0;"
                             >
                         </div>
                         <div class="form-group">
@@ -174,8 +183,11 @@
                                 name="salary_max" 
                                 class="form-control" 
                                 placeholder="15000"
+                                min="0"
+                                step="100"
                                 dir="ltr"
                                 value="<?= !empty($job['SalaryMax']) ? (int)$job['SalaryMax'] : '' ?>"
+                                oninput="if(this.value < 0) this.value = 0;"
                             >
                         </div>
                     </div>
@@ -306,6 +318,44 @@ function submitEditJobForm(e) {
     var errBox = document.getElementById('editJobError');
     var errText = document.getElementById('editJobErrorText');
     if (errBox) errBox.style.display = 'none';
+
+    var salMinEl = document.getElementById('editSalaryMin');
+    var salMaxEl = document.getElementById('editSalaryMax');
+    var salMin = (salMinEl && salMinEl.value !== '') ? parseFloat(salMinEl.value) : null;
+    var salMax = (salMaxEl && salMaxEl.value !== '') ? parseFloat(salMaxEl.value) : null;
+
+    if (salMin !== null && salMin < 0) {
+        if (errBox && errText) {
+            errText.textContent = 'الحد الأدنى للمرتب لا يمكن أن يكون بالسالب';
+            errBox.style.display = 'flex';
+        } else {
+            alert('الحد الأدنى للمرتب لا يمكن أن يكون بالسالب');
+        }
+        salMinEl.focus();
+        return;
+    }
+
+    if (salMax !== null && salMax < 0) {
+        if (errBox && errText) {
+            errText.textContent = 'الحد الأقصى للمرتب لا يمكن أن يكون بالسالب';
+            errBox.style.display = 'flex';
+        } else {
+            alert('الحد الأقصى للمرتب لا يمكن أن يكون بالسالب');
+        }
+        salMaxEl.focus();
+        return;
+    }
+
+    if (salMin !== null && salMax !== null && salMin > salMax) {
+        if (errBox && errText) {
+            errText.textContent = 'الحد الأدنى للمرتب لا يمكن أن يكون أكبر من الحد الأقصى';
+            errBox.style.display = 'flex';
+        } else {
+            alert('الحد الأدنى للمرتب لا يمكن أن يكون أكبر من الحد الأقصى');
+        }
+        salMinEl.focus();
+        return;
+    }
 
     var btn = document.getElementById('saveEditJobBtn');
     var origHtml = btn ? btn.innerHTML : '';

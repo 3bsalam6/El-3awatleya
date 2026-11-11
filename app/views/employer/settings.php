@@ -24,7 +24,15 @@
         </div>
         <div class="navbar-actions">
             <a href="/employer/settings" class="user-pill employer-pill active-pill">
-                <div class="user-avatar employer-avatar"><?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?></div>
+                <div class="user-avatar employer-avatar" id="navUserAvatar">
+                    <?php if (!empty($user['CompanyLogo'])): ?>
+                        <img src="<?= htmlspecialchars($user['CompanyLogo']) ?>" alt="">
+                    <?php elseif (!empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        <?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?>
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars($user['CompanyName'] ?? $user['FullName'] ?? 'شركة') ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
@@ -38,6 +46,39 @@
             <div class="page-header">
                 <h1 class="page-title">إعدادات الحساب</h1>
                 <p class="page-subtitle">إدارة بيانات الشركة وإعدادات الأمان</p>
+            </div>
+
+            <!-- Company Logo Upload -->
+            <div class="card mb-3">
+                <h2 class="card-title">📷 شعار الشركة</h2>
+                <p class="card-desc">ارفع لوجو الشركة اللي هيظهر في الوظائف والحساب</p>
+
+                <div class="avatar-upload-area" id="avatarUploadArea">
+                    <div class="avatar-preview avatar-preview-logo" id="avatarPreview">
+                        <?php if (!empty($user['CompanyLogo'])): ?>
+                            <img src="<?= htmlspecialchars($user['CompanyLogo']) ?>" alt="شعار الشركة" id="avatarImg">
+                        <?php elseif (!empty($user['ProfilePicture'])): ?>
+                            <img src="<?= htmlspecialchars($user['ProfilePicture']) ?>" alt="شعار الشركة" id="avatarImg">
+                        <?php else: ?>
+                            <span class="avatar-initial" id="avatarInitial"><?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?></span>
+                        <?php endif; ?>
+                        <div class="avatar-overlay">
+                            <span>📷</span>
+                            <small>تغيير الشعار</small>
+                        </div>
+                    </div>
+                    <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;">
+                    <div class="avatar-upload-info">
+                        <p style="font-weight: 600; margin-bottom: 4px;">اضغط على الشعار لتغييره</p>
+                        <p class="text-muted" style="font-size: 0.8rem;">JPG, PNG, WebP, GIF — أقصى حجم 5MB</p>
+                        <?php if (!empty($user['CompanyLogo']) || !empty($user['ProfilePicture'])): ?>
+                            <button type="button" class="btn btn-danger btn-sm mt-1" id="deleteAvatarBtn" style="font-size: 0.8rem;">
+                                🗑️ حذف الشعار
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div id="avatarUploadStatus" style="display:none; margin-top: 10px;"></div>
             </div>
 
             <!-- Company Info -->
@@ -147,11 +188,11 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="settingsNewPassword">كلمة المرور الجديدة</label>
-                            <input type="password" id="settingsNewPassword" name="new_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6">
+                            <input type="password" id="settingsNewPassword" name="new_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6" maxlength="30">
                         </div>
                         <div class="form-group">
                             <label for="settingsConfirmPassword">تأكيد كلمة المرور</label>
-                            <input type="password" id="settingsConfirmPassword" name="confirm_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6">
+                            <input type="password" id="settingsConfirmPassword" name="confirm_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6" maxlength="30">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-outline mt-1" id="changePasswordBtn" style="width: auto;">

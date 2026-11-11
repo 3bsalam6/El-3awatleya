@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="العواطلية - عرض المتقدمين على الوظائف">
     <title>العواطلية - المتقدمين</title>
-    <link rel="stylesheet" href="/public/css/style.css">
+    <link rel="stylesheet" href="/public/css/style.css?v=<?= time() ?>">
 </head>
 <body>
 
@@ -24,7 +24,13 @@
         </div>
         <div class="navbar-actions">
             <a href="/employer/settings" class="user-pill employer-pill">
-                <div class="user-avatar employer-avatar"><?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?></div>
+                <div class="user-avatar employer-avatar">
+                    <?php if (!empty($user['CompanyLogo']) || !empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['CompanyLogo'] ?? $user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        <?= mb_substr($user['CompanyName'] ?? $user['FullName'] ?? 'ش', 0, 1) ?>
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars($user['CompanyName'] ?? $user['FullName'] ?? 'شركة') ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
@@ -148,8 +154,12 @@
                                         </label>
                                     <?php endif; ?>
                                     <div class="applicant-info">
-                                        <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem;">
-                                            <?= mb_substr($a['FullName'] ?? 'م', 0, 1) ?>
+                                        <div class="user-avatar" style="width: 48px; height: 48px; font-size: 1.1rem;" <?= !empty($a['ProfilePicture']) ? 'title="اضغط لتكبير الصورة"' : '' ?>>
+                                            <?php if (!empty($a['ProfilePicture'])): ?>
+                                                <img src="<?= htmlspecialchars($a['ProfilePicture']) ?>" alt="<?= htmlspecialchars($a['FullName'] ?? '') ?>" onerror="this.onerror=null; this.parentElement.innerHTML='<?= mb_substr($a['FullName'] ?? 'م', 0, 1) ?>';">
+                                            <?php else: ?>
+                                                <?= mb_substr($a['FullName'] ?? 'م', 0, 1) ?>
+                                            <?php endif; ?>
                                         </div>
                                         <div>
                                             <h3><?= htmlspecialchars($a['FullName'] ?? 'متقدم') ?></h3>
@@ -188,6 +198,11 @@
                                     <span class="action-status-label" style="color: #4a8c5c; font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
                                         📅 تم قبول الطلب وتحديد المقابلة
                                     </span>
+                                    <?php if (!empty($a['InterviewDate'])): ?>
+                                        <span style="font-size: 0.82rem; color: #4a8c5c; background: rgba(74, 140, 92, 0.12); border: 1px solid rgba(74, 140, 92, 0.3); padding: 3px 9px; border-radius: 6px; font-weight: 600;">
+                                            ⏰ <?= Mailer::formatArabicDateTime($a['InterviewDate']) ?>
+                                        </span>
+                                    <?php endif; ?>
                                     <a href="/employer/interview?application_id=<?= $a['ApplicationID'] ?>" class="btn btn-outline btn-sm" style="font-size: 0.8rem;">
                                         ✏️ تعديل المقابلة
                                     </a>

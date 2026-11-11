@@ -20,7 +20,13 @@
         <div class="navbar-actions">
             <a href="/jobs" class="btn btn-outline btn-sm">← الوظائف</a>
             <a href="/settings" class="user-pill">
-                <div class="user-avatar"><?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?></div>
+                <div class="user-avatar">
+                    <?php if (!empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        <?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?>
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars(explode(' ', $user['FullName'] ?? 'مستخدم')[0]) ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
@@ -34,7 +40,16 @@
             <!-- Job Details -->
             <div class="card mb-3">
                 <div class="job-detail-header">
-                    <div class="job-company-logo" style="font-size: 2.5rem;">🏢</div>
+                    <div class="job-company-logo" style="font-size: 2.5rem; width: 60px; height: 60px;">
+                        <?php 
+                        $logo = !empty($job['CompanyLogo']) ? $job['CompanyLogo'] : (!empty($job['EmployerProfilePicture']) ? $job['EmployerProfilePicture'] : '');
+                        ?>
+                        <?php if (!empty($logo)): ?>
+                            <img src="<?= htmlspecialchars($logo) ?>" alt="<?= htmlspecialchars($job['CompanyName'] ?? '') ?>">
+                        <?php else: ?>
+                            🏢
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <h1 class="page-title" id="jobTitleDetail"><?= htmlspecialchars($job['Title']) ?></h1>
                         <p class="page-subtitle" id="jobCompanyDetail"><?= htmlspecialchars($job['CompanyName'] ?? $job['EmployerName'] ?? 'شركة') ?></p>

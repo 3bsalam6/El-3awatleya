@@ -106,7 +106,17 @@
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <span style="font-weight: 600;"><?= ($pReq['FieldChanged'] === 'CompanyName') ? '🏢 اسم الشركة' : '👤 الاسم الكامل' ?></span>
+                                            <span style="font-weight: 600;">
+                                                <?php
+                                                switch ($pReq['FieldChanged']) {
+                                                    case 'CompanyName': echo '🏢 اسم الشركة'; break;
+                                                    case 'FullName':    echo '👤 الاسم الكامل'; break;
+                                                    case 'Email':       echo '📧 البريد الإلكتروني'; break;
+                                                    case 'Phone':       echo '📱 رقم الموبايل'; break;
+                                                    default:            echo htmlspecialchars($pReq['FieldChanged']);
+                                                }
+                                                ?>
+                                            </span>
                                         </td>
                                         <td>
                                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">

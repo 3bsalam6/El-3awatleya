@@ -20,7 +20,13 @@
         <div class="navbar-actions">
             <a href="/dashboard" class="btn btn-outline btn-sm">← الداشبورد</a>
             <a href="/settings" class="user-pill">
-                <div class="user-avatar"><?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?></div>
+                <div class="user-avatar">
+                    <?php if (!empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        <?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?>
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars(explode(' ', $user['FullName'] ?? 'مستخدم')[0]) ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>

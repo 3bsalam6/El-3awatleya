@@ -96,11 +96,11 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="settingsNewPassword">كلمة المرور الجديدة</label>
-                            <input type="password" id="settingsNewPassword" name="new_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6">
+                            <input type="password" id="settingsNewPassword" name="new_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6" maxlength="30">
                         </div>
                         <div class="form-group">
                             <label for="settingsConfirmPassword">تأكيد كلمة المرور</label>
-                            <input type="password" id="settingsConfirmPassword" name="confirm_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6">
+                            <input type="password" id="settingsConfirmPassword" name="confirm_password" class="form-control" placeholder="••••••••" required dir="ltr" minlength="6" maxlength="30">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-outline mt-1" id="changePasswordBtn" style="width: auto;">

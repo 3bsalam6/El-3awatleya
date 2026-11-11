@@ -44,6 +44,7 @@
                             required 
                             dir="ltr" 
                             minlength="6"
+                            maxlength="30"
                             autocomplete="new-password"
                         >
                     </div>
@@ -59,6 +60,7 @@
                             required 
                             dir="ltr" 
                             minlength="6"
+                            maxlength="30"
                             autocomplete="new-password"
                         >
                     </div>

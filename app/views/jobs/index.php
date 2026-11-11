@@ -25,7 +25,13 @@
         </div>
         <div class="navbar-actions">
             <a href="/settings" class="user-pill">
-                <div class="user-avatar"><?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?></div>
+                <div class="user-avatar">
+                    <?php if (!empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        <?= mb_substr($user['FullName'] ?? 'ع', 0, 1) ?>
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars(explode(' ', $user['FullName'] ?? 'مستخدم')[0]) ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
@@ -74,7 +80,16 @@
                     <?php foreach ($jobs as $job): ?>
                         <div class="job-card" data-type="<?= htmlspecialchars($job['JobType'] ?? '') ?>" data-level="<?= htmlspecialchars($job['ExperienceLevel'] ?? '') ?>">
                             <div class="job-card-header">
-                                <div class="job-company-logo">🏢</div>
+                                <div class="job-company-logo">
+                                    <?php 
+                                    $logo = !empty($job['CompanyLogo']) ? $job['CompanyLogo'] : (!empty($job['EmployerProfilePicture']) ? $job['EmployerProfilePicture'] : '');
+                                    ?>
+                                    <?php if (!empty($logo)): ?>
+                                        <img src="<?= htmlspecialchars($logo) ?>" alt="<?= htmlspecialchars($job['CompanyName'] ?? '') ?>">
+                                    <?php else: ?>
+                                        🏢
+                                    <?php endif; ?>
+                                </div>
                                 <div>
                                     <h3 class="job-title"><?= htmlspecialchars($job['Title']) ?></h3>
                                     <p class="job-company"><?= htmlspecialchars($job['CompanyName'] ?? $job['EmployerName'] ?? 'شركة') ?></p>

@@ -24,7 +24,13 @@
         </div>
         <div class="navbar-actions">
             <a href="/employer/settings" class="user-pill employer-pill">
-                <div class="user-avatar employer-avatar">🏢</div>
+                <div class="user-avatar employer-avatar">
+                    <?php if (!empty($user['CompanyLogo']) || !empty($user['ProfilePicture'])): ?>
+                        <img src="<?= htmlspecialchars($user['CompanyLogo'] ?? $user['ProfilePicture']) ?>" alt="">
+                    <?php else: ?>
+                        🏢
+                    <?php endif; ?>
+                </div>
                 <span><?= htmlspecialchars($user['CompanyName'] ?? $user['FullName'] ?? 'صاحب عمل') ?></span>
             </a>
             <a href="/logout" class="btn btn-ghost btn-sm">خروج</a>
@@ -133,7 +139,10 @@
                                 name="salary_min" 
                                 class="form-control" 
                                 placeholder="5000"
+                                min="0"
+                                step="100"
                                 dir="ltr"
+                                oninput="if(this.value < 0) this.value = 0;"
                             >
                         </div>
                         <div class="form-group">
@@ -144,7 +153,10 @@
                                 name="salary_max" 
                                 class="form-control" 
                                 placeholder="15000"
+                                min="0"
+                                step="100"
                                 dir="ltr"
+                                oninput="if(this.value < 0) this.value = 0;"
                             >
                         </div>
                     </div>

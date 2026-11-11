@@ -444,8 +444,19 @@ class AdminController
             return;
         }
 
-        $fieldName = ($req['FieldChanged'] === 'CompanyName') ? 'اسم الشركة' : 'الاسم بالكامل';
+        $fieldMap = [
+            'CompanyName' => 'اسم الشركة',
+            'FullName'    => 'الاسم بالكامل',
+            'Email'       => 'البريد الإلكتروني',
+            'Phone'       => 'رقم الموبايل',
+        ];
+        $fieldName = $fieldMap[$req['FieldChanged']] ?? $req['FieldChanged'];
+
+        // Send approval notification email
         Mailer::sendNameChangeApproved($req['Email'], $req['FullName'], $fieldName, $req['NewValue']);
+        if ($req['FieldChanged'] === 'Email' && $req['Email'] !== $req['NewValue']) {
+            Mailer::sendNameChangeApproved($req['NewValue'], $req['FullName'], $fieldName, $req['NewValue']);
+        }
 
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("INSERT INTO ActivityLogs (UserID, Action, Details, CreatedAt) VALUES (?, ?, ?, GETDATE())");
@@ -480,7 +491,13 @@ class AdminController
             return;
         }
 
-        $fieldName = ($req['FieldChanged'] === 'CompanyName') ? 'اسم الشركة' : 'الاسم بالكامل';
+        $fieldMap = [
+            'CompanyName' => 'اسم الشركة',
+            'FullName'    => 'الاسم بالكامل',
+            'Email'       => 'البريد الإلكتروني',
+            'Phone'       => 'رقم الموبايل',
+        ];
+        $fieldName = $fieldMap[$req['FieldChanged']] ?? $req['FieldChanged'];
         Mailer::sendNameChangeRejected($req['Email'], $req['FullName'], $fieldName, $reason);
 
         $db = Database::getInstance()->getConnection();

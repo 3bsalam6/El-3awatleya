@@ -43,7 +43,7 @@ class Job
     public function getActive($search = null, $category = null, $jobType = null)
     {
         $sql = "
-            SELECT j.*, u.FullName AS EmployerName, ep.CompanyName
+            SELECT j.*, u.FullName AS EmployerName, ep.CompanyName, ep.CompanyLogo, u.ProfilePicture AS EmployerProfilePicture
             FROM Jobs j
             JOIN Users u ON j.EmployerID = u.UserID
             LEFT JOIN EmployerProfiles ep ON j.EmployerID = ep.UserID
@@ -83,7 +83,7 @@ class Job
     public function findById($id)
     {
         $stmt = $this->db->prepare("
-            SELECT j.*, u.FullName AS EmployerName, ep.CompanyName, ep.Industry, ep.City AS CompanyCity
+            SELECT j.*, u.FullName AS EmployerName, ep.CompanyName, ep.Industry, ep.City AS CompanyCity, ep.CompanyLogo, u.ProfilePicture AS EmployerProfilePicture
             FROM Jobs j
             JOIN Users u ON j.EmployerID = u.UserID
             LEFT JOIN EmployerProfiles ep ON j.EmployerID = ep.UserID

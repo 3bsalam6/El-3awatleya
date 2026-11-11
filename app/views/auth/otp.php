@@ -27,6 +27,10 @@
                     <div class="alert alert-success"><?= Session::flash('success') ?></div>
                 <?php endif; ?>
 
+                <?php 
+                $resendSeconds = Session::getOTPResendSecondsLeft();
+                ?>
+
                 <form id="otpLoginForm" method="POST" action="/otp">
                     <div class="form-group">
                         <div class="otp-inputs" id="otpInputs">
@@ -40,9 +44,17 @@
                         <input type="hidden" id="otpFull" name="otp">
                     </div>
 
-                    <div class="otp-timer">
-                        <span id="otpTimer">02:00</span>
-                        <button type="button" class="btn-link" id="resendOTP" disabled>ابعت تاني</button>
+                    <div class="otp-validity-note" style="text-align: center; font-size: 0.83rem; color: var(--text-muted); margin-bottom: 10px;">
+                        ⏱️ الكود صالح للاستخدام لمدة <?= OTP_EXPIRY_MINUTES ?> دقائق
+                    </div>
+
+                    <div class="otp-resend-area" style="text-align: center; margin-bottom: 16px;">
+                        <span id="resendCountdownNotice" style="font-size: 0.86rem; color: var(--text-muted); <?= ($resendSeconds <= 0) ? 'display: none;' : '' ?>">
+                            إعادة إرسال الكود بعد: <strong id="resendTimerCountdown" style="color: var(--accent); font-variant-numeric: tabular-nums;"><?= sprintf('%02d:%02d', floor($resendSeconds / 60), $resendSeconds % 60) ?></strong>
+                        </span>
+                        <button type="button" class="btn-link" id="resendOTP" data-resend-seconds="<?= $resendSeconds ?>" style="font-size: 0.88rem; font-weight: 600; <?= ($resendSeconds > 0) ? 'display: none;' : '' ?>">
+                            🔄 ابعت تاني
+                        </button>
                     </div>
 
                     <div class="otp-attempts" id="otpAttempts">

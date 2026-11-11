@@ -133,8 +133,19 @@ class AuthController
                 Session::redirect('/register');
             }
 
-            if (strlen($password) < 6) {
-                Session::flash('error', 'الباسورد لازم يكون 6 حروف على الأقل');
+            if (strlen($password) < 6 || strlen($password) > 30) {
+                Session::flash('error', 'كلمة المرور يجب أن تكون بين 6 و 30 حرفاً');
+                Session::redirect('/register');
+            }
+
+            $phone = trim($_POST['phone'] ?? '');
+            if (empty($phone)) {
+                Session::flash('error', 'رقم الموبايل مطلوب');
+                Session::redirect('/register');
+            }
+
+            if (!preg_match('/^01[0125][0-9]{8}$/', $phone)) {
+                Session::flash('error', 'رقم الموبايل غير صحيح، يجب أن يتكون من 11 رقماً ويبدأ بـ 010 أو 011 أو 012 أو 015');
                 Session::redirect('/register');
             }
 
@@ -153,7 +164,7 @@ class AuthController
                 'email' => $email,
                 'password' => $password,
                 'role' => $role,
-                'phone' => $_POST['phone'] ?? null,
+                'phone' => $phone,
                 'city' => $_POST['city'] ?? null,
                 'company_name' => $_POST['company_name'] ?? null,
                 'industry' => $_POST['industry'] ?? null,
@@ -205,6 +216,16 @@ class AuthController
             return;
         }
 
+        $secondsLeft = Session::getOTPResendSecondsLeft();
+        if ($secondsLeft > 0) {
+            echo json_encode([
+                'success' => false,
+                'seconds_left' => $secondsLeft,
+                'message' => "برجاء الانتظار {$secondsLeft} ثانية قبل طلب كود جديد"
+            ]);
+            return;
+        }
+
         $userId = $otp['user_id'];
         $purpose = $otp['purpose'];
         $user = $this->userModel->findById($userId);
@@ -215,10 +236,16 @@ class AuthController
 
         $newCode = Auth::generateOTP();
         Session::setOTP($newCode, $userId, $purpose);
-        $sent = Mailer::sendOTP($user['Email'], $newCode, $user['FullName']);
+        $sent = ($purpose === 'forgot_password') 
+            ? Mailer::sendPasswordReset($user['Email'], $newCode, $user['FullName'])
+            : Mailer::sendOTP($user['Email'], $newCode, $user['FullName']);
 
         if ($sent) {
-            echo json_encode(['success' => true, 'message' => 'تم إرسال كود تحقق جديد إلى إيميلك بنجاح!']);
+            echo json_encode([
+                'success' => true, 
+                'seconds_left' => defined('OTP_RESEND_COOLDOWN_SECONDS') ? OTP_RESEND_COOLDOWN_SECONDS : 60,
+                'message' => 'تم إرسال كود تحقق جديد إلى إيميلك بنجاح!'
+            ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'تعذر إرسال الإيميل، تأكد من اتصال الإنترنت']);
         }
@@ -334,8 +361,8 @@ class AuthController
             Session::redirect('/reset-password');
         }
 
-        if (strlen($password) < 6) {
-            Session::flash('error', 'الباسورد لازم يكون 6 حروف على الأقل');
+        if (strlen($password) < 6 || strlen($password) > 30) {
+            Session::flash('error', 'كلمة المرور يجب أن تكون بين 6 و 30 حرفاً');
             Session::redirect('/reset-password');
         }
 

@@ -542,9 +542,16 @@ img {
 }
 
 .otp-timer span:first-child {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+}
+
+.otp-timer #otpTimer,
+.otp-timer #adminOTPTimer {
     font-weight: 700;
     color: var(--accent);
     font-size: 1rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .otp-attempts {
@@ -720,6 +727,105 @@ a.user-pill.active-pill {
     justify-content: center;
     font-weight: 700;
     font-size: 0.75rem;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    display: block;
+}
+
+/* --- Avatar Upload Widget --- */
+.avatar-upload-area {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 0;
+}
+
+.avatar-preview {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 2rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    border: 3px solid var(--border);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    flex-shrink: 0;
+}
+
+.avatar-preview:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(196, 113, 43, 0.15);
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.avatar-preview .avatar-initial {
+    line-height: 1;
+}
+
+.avatar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.25s;
+    color: #fff;
+    font-size: 0.75rem;
+    gap: 2px;
+    border-radius: inherit;
+}
+
+.avatar-overlay span {
+    font-size: 1.3rem;
+}
+
+.avatar-preview:hover .avatar-overlay {
+    opacity: 1;
+}
+
+.avatar-upload-info p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.avatar-preview-logo {
+    border-radius: var(--radius-md);
+}
+
+.avatar-upload-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-left: 6px;
 }
 
 .admin-navbar {
@@ -1018,6 +1124,14 @@ a.user-pill.active-pill {
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
     flex-shrink: 0;
+    overflow: hidden;
+}
+
+.job-company-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .job-title {
@@ -2307,5 +2421,169 @@ a.user-pill.active-pill {
     50% { outline: 3px solid var(--accent); }
     100% { outline: 2px solid transparent; }
 }
+
+/* ===================================
+   IMAGE LIGHTBOX / MODAL PREVIEW
+   =================================== */
+.image-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 8, 6, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 100000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+
+.image-lightbox-overlay.active {
+    opacity: 1;
+}
+
+.image-lightbox-wrapper {
+    position: relative;
+    max-width: 90vw;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: scale(0.92);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.image-lightbox-overlay.active .image-lightbox-wrapper {
+    transform: scale(1);
+}
+
+.image-lightbox-close {
+    position: absolute;
+    top: -16px;
+    left: -16px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #261f18;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    font-size: 1.5rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    transition: all 0.2s ease;
+}
+
+.image-lightbox-close:hover {
+    background: var(--danger, #ef4444);
+    border-color: var(--danger, #ef4444);
+    transform: scale(1.1);
+}
+
+.image-lightbox-body {
+    background: #1c1813;
+    padding: 6px;
+    border-radius: 16px;
+    border: 1px solid rgba(196, 113, 43, 0.35);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+}
+
+.image-lightbox-img {
+    max-width: min(85vw, 650px);
+    max-height: 70vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    display: block;
+}
+
+.image-lightbox-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px 16px;
+    gap: 14px;
+    background: rgba(28, 24, 19, 0.88);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.image-lightbox-caption {
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.image-lightbox-link {
+    color: var(--accent, #c4712b);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: rgba(196, 113, 43, 0.15);
+    border: 1px solid rgba(196, 113, 43, 0.3);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.image-lightbox-link:hover {
+    background: var(--accent, #c4712b);
+    color: #fff;
+    border-color: var(--accent, #c4712b);
+}
+
+/* Hover effects for clickable avatar images */
+.applicant-info .user-avatar img,
+.cv-received-item .user-avatar img,
+.applicant-card .user-avatar img,
+.user-avatar[data-lightbox="true"] img {
+    cursor: zoom-in;
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.applicant-info .user-avatar:hover img,
+.cv-received-item .user-avatar:hover img,
+.applicant-card .user-avatar:hover img,
+.user-avatar[data-lightbox="true"]:hover img {
+    transform: scale(1.08);
+    filter: brightness(1.05);
+}
+
+.applicant-info .user-avatar:has(img),
+.cv-received-item .user-avatar:has(img),
+.applicant-card .user-avatar:has(img),
+.user-avatar[data-lightbox="true"] {
+    cursor: zoom-in;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.applicant-info .user-avatar:has(img):hover,
+.cv-received-item .user-avatar:has(img):hover,
+.applicant-card .user-avatar:has(img):hover,
+.user-avatar[data-lightbox="true"]:hover {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
 
 

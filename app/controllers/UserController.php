@@ -19,7 +19,8 @@ class UserController
     {
         Auth::requireRole('user');
         $user = $this->userModel->getProfile(Auth::id());
-        $pendingNameChange = $this->userModel->getPendingNameChange(Auth::id(), 'FullName');
+        $pendingRequests = $this->userModel->getPendingRequestsForUser(Auth::id());
+        $pendingNameChange = $pendingRequests['FullName'] ?? null;
         require __DIR__ . '/../views/user/settings.php';
     }
 
@@ -31,34 +32,103 @@ class UserController
         Auth::requireRole('user');
         header('Content-Type: application/json');
 
-        $data = [
-            'name'      => trim($_POST['name'] ?? ''),
-            'phone'     => $_POST['phone'] ?? null,
-            'city'      => $_POST['city'] ?? null,
-            'bio'       => $_POST['bio'] ?? null,
-            'years_exp' => (int)($_POST['years_exp'] ?? 0),
-            'linkedin'  => $_POST['linkedin'] ?? null,
-            'github'    => $_POST['github'] ?? null,
-            'portfolio' => $_POST['portfolio'] ?? null,
-        ];
+        $name = trim($_POST['name'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $city = trim($_POST['city'] ?? '');
+        $bio = trim($_POST['bio'] ?? '');
+        $rawYearsExp = $_POST['years_exp'] ?? 0;
+        $linkedin = trim($_POST['linkedin'] ?? '');
+        $github = trim($_POST['github'] ?? '');
+        $portfolio = trim($_POST['portfolio'] ?? '');
 
-        if (empty($data['name'])) {
+        if (empty($name)) {
             echo json_encode(['success' => false, 'message' => 'الاسم مطلوب']);
             return;
         }
 
+        // Point 7: Experience cannot be negative
+        if ((int)$rawYearsExp < 0) {
+            echo json_encode(['success' => false, 'message' => 'سنوات الخبرة لا يمكن أن تكون بالسالب']);
+            return;
+        }
+        $yearsExp = max(0, min(60, (int)$rawYearsExp));
+
+        // Point 8: Bio character limit (max 500 characters)
+        if (mb_strlen($bio) > 500) {
+            echo json_encode(['success' => false, 'message' => 'نبذة عنك يجب ألا تتجاوز 500 حرف (المكتوب حالياً: ' . mb_strlen($bio) . ' حرف)']);
+            return;
+        }
+
+        // Point 9: GitHub and LinkedIn are REQUIRED, portfolio optional
+        if (empty($linkedin)) {
+            echo json_encode(['success' => false, 'message' => 'رابط حساب LinkedIn مطلوب وإجباري']);
+            return;
+        }
+        if (!filter_var($linkedin, FILTER_VALIDATE_URL) || stripos($linkedin, 'linkedin.com') === false) {
+            echo json_encode(['success' => false, 'message' => 'يرجى إدخال رابط LinkedIn صحيح (مثال: https://linkedin.com/in/username)']);
+            return;
+        }
+
+        if (empty($github)) {
+            echo json_encode(['success' => false, 'message' => 'رابط حساب GitHub مطلوب وإجباري']);
+            return;
+        }
+        if (!filter_var($github, FILTER_VALIDATE_URL) || stripos($github, 'github.com') === false) {
+            echo json_encode(['success' => false, 'message' => 'يرجى إدخال رابط GitHub صحيح (مثال: https://github.com/username)']);
+            return;
+        }
+
+        if (!empty($portfolio) && !filter_var($portfolio, FILTER_VALIDATE_URL)) {
+            echo json_encode(['success' => false, 'message' => 'يرجى إدخال رابط معرض أعمال (Portfolio) صحيح يبدأ بـ https://']);
+            return;
+        }
+
+        // Validate Egyptian phone format if provided
+        if (!empty($phone) && !preg_match('/^01[0125][0-9]{8}$/', $phone)) {
+            echo json_encode(['success' => false, 'message' => 'رقم الموبايل يجب أن يكون رقماً مصرياً صحيحاً مكوناً من 11 رقماً ويبدأ بـ 01']);
+            return;
+        }
+
+        // Handle avatar upload if included in profile form
+        if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $this->processAvatarUpload(Auth::id());
+        }
+
         $currentUser = $this->userModel->findById(Auth::id());
-        $isNameChanged = ($data['name'] !== $currentUser['FullName']);
+        $currentProfile = $this->userModel->getProfile(Auth::id());
+        $currentPhone = $currentProfile['Phone'] ?? '';
 
-        // Update non-sensitive profile fields immediately
-        $this->userModel->updateUserProfileOnly(Auth::id(), $data);
+        $isNameChanged = ($name !== $currentUser['FullName']);
+        $isPhoneChanged = (!empty($phone) && $phone !== $currentPhone);
 
+        // Update non-sensitive profile fields immediately (preserves Phone in DB)
+        $this->userModel->updateUserProfileNonSensitive(Auth::id(), [
+            'city'      => $city,
+            'bio'       => $bio,
+            'years_exp' => $yearsExp,
+            'linkedin'  => $linkedin,
+            'github'    => $github,
+            'portfolio' => $portfolio,
+        ]);
+
+        $pendingParts = [];
+
+        // Point 5: FullName and Phone require admin approval
         if ($isNameChanged) {
-            $this->userModel->requestNameChange(Auth::id(), 'FullName', $currentUser['FullName'], $data['name']);
+            $this->userModel->requestNameChange(Auth::id(), 'FullName', $currentUser['FullName'], $name);
+            $pendingParts[] = 'الاسم إلى "' . $name . '"';
+        }
+
+        if ($isPhoneChanged) {
+            $this->userModel->requestNameChange(Auth::id(), 'Phone', $currentPhone, $phone);
+            $pendingParts[] = 'رقم الموبايل إلى "' . $phone . '"';
+        }
+
+        if (!empty($pendingParts)) {
             echo json_encode([
                 'success' => true,
-                'name_pending' => true,
-                'message' => 'تم حفظ البيانات! طلب تغيير الاسم إلى "' . $data['name'] . '" تم إرساله للإدارة للموافقة عليه ⏳'
+                'pending' => true,
+                'message' => 'تم حفظ البيانات! طلب تعديل (' . implode(' و ', $pendingParts) . ') تم إرساله للإدارة للموافقة عليه ⏳'
             ]);
         } else {
             echo json_encode(['success' => true, 'message' => 'تم حفظ التغييرات بنجاح ✅']);
@@ -66,7 +136,90 @@ class UserController
     }
 
     /**
-     * Change email POST
+     * Upload user avatar via AJAX
+     */
+    public function uploadAvatar()
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+
+        $res = $this->processAvatarUpload(Auth::id());
+        echo json_encode($res);
+    }
+
+    /**
+     * Process avatar upload helper
+     */
+    private function processAvatarUpload($userId)
+    {
+        if (!isset($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'message' => 'لم يتم تحديد أي صورة صالحة للرفع'];
+        }
+
+        $file = $_FILES['avatar'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        if (!in_array($ext, $allowed)) {
+            return ['success' => false, 'message' => 'نوع الملف غير مدعوم. المسموح: JPG, PNG, WEBP, GIF'];
+        }
+
+        if ($file['size'] > 5 * 1024 * 1024) {
+            return ['success' => false, 'message' => 'حجم الصورة كبير جداً (الحد الأقصى: 5 ميجابايت)'];
+        }
+
+        $uploadDir = __DIR__ . '/../../public/uploads/avatars/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        $fileName = 'avatar_' . $userId . '_' . time() . '.' . $ext;
+        $destPath = $uploadDir . $fileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+            return ['success' => false, 'message' => 'فشل في حفظ الصورة على الخادم'];
+        }
+
+        $webPath = '/public/uploads/avatars/' . $fileName;
+        $this->userModel->updateProfilePicture($userId, $webPath);
+
+        // If employer role, sync company logo as well
+        $user = $this->userModel->findById($userId);
+        if ($user && $user['Role'] === 'employer') {
+            $this->userModel->updateCompanyLogo($userId, $webPath);
+        }
+
+        return [
+            'success' => true,
+            'avatar_url' => $webPath,
+            'message' => 'تم رفع وتحديث الصورة بنجاح! 📸'
+        ];
+    }
+
+    /**
+     * Delete user avatar
+     */
+    public function deleteAvatar()
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+
+        $userId = Auth::id();
+        $this->userModel->deleteProfilePicture($userId);
+
+        $user = $this->userModel->findById($userId);
+        if ($user && $user['Role'] === 'employer') {
+            $this->userModel->deleteCompanyLogo($userId);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'تم حذف الصورة واستعادة الرمز الافتراضي بنجاح'
+        ]);
+    }
+
+    /**
+     * Change email POST (requires Admin approval)
      */
     public function changeEmail()
     {
@@ -81,23 +234,37 @@ class UserController
             return;
         }
 
+        if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'صيغة البريد الإلكتروني غير صحيحة']);
+            return;
+        }
+
         $user = $this->userModel->findById(Auth::id());
         if (!password_verify($password, $user['PasswordHash'])) {
-            echo json_encode(['success' => false, 'message' => 'الباسورد غلط']);
+            echo json_encode(['success' => false, 'message' => 'كلمة المرور الحالية غير صحيحة']);
+            return;
+        }
+
+        if (strtolower($newEmail) === strtolower($user['Email'])) {
+            echo json_encode(['success' => false, 'message' => 'البريد الإلكتروني الجديد هو نفس بريدك الحالي']);
             return;
         }
 
         // Check if new email already taken
         $existing = $this->userModel->findByEmail($newEmail);
         if ($existing && $existing['UserID'] != Auth::id()) {
-            echo json_encode(['success' => false, 'message' => 'الإيميل ده مستخدم بالفعل']);
+            echo json_encode(['success' => false, 'message' => 'البريد الإلكتروني ده مستخدم بالفعل بحساب آخر']);
             return;
         }
 
-        $this->userModel->updateEmail(Auth::id(), $newEmail);
-        Session::set('user_email', $newEmail);
+        // Point 5: Changing email requires admin approval!
+        $this->userModel->requestNameChange(Auth::id(), 'Email', $user['Email'], $newEmail);
 
-        echo json_encode(['success' => true, 'message' => 'تم تغيير الإيميل ✅']);
+        echo json_encode([
+            'success' => true,
+            'email_pending' => true,
+            'message' => 'تم إرسال طلب تغيير البريد الإلكتروني إلى "' . $newEmail . '" لإدارة المنصة للمراجعة والموافقة عليه ⏳'
+        ]);
     }
 
     /**
@@ -122,8 +289,14 @@ class UserController
             return;
         }
 
-        if (strlen($newPassword) < 6) {
-            echo json_encode(['success' => false, 'message' => 'الباسورد لازم يكون 6 حروف على الأقل']);
+        if (strlen($newPassword) < 6 || strlen($newPassword) > 30) {
+            echo json_encode(['success' => false, 'message' => 'الباسورد لازم يكون بين 6 و 30 حرفاً']);
+            return;
+        }
+
+        // Point 10: New password must be different from current password
+        if ($currentPassword === $newPassword) {
+            echo json_encode(['success' => false, 'message' => 'كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية']);
             return;
         }
 
@@ -133,8 +306,13 @@ class UserController
             return;
         }
 
+        if (password_verify($newPassword, $user['PasswordHash'])) {
+            echo json_encode(['success' => false, 'message' => 'كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية']);
+            return;
+        }
+
         $this->userModel->updatePassword(Auth::id(), $newPassword);
-        echo json_encode(['success' => true, 'message' => 'تم تغيير الباسورد ✅']);
+        echo json_encode(['success' => true, 'message' => 'تم تغيير الباسورد بنجاح ✅']);
     }
 
     /**

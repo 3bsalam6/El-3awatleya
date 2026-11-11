@@ -2,8 +2,10 @@
 /**
  * العواطلية - Application Entry Point
  * All requests are routed through this file
+ * D:\Level 2 First Semester\Software Engineering - 1\El-3awatleya
  *  php -S localhost:8000 index.php
  *  http://localhost:8000/login
+ *  ngrok http 8000
  */
 
 // Serve static files directly in PHP's built-in server
@@ -18,6 +20,7 @@ if ($uri !== '/' && file_exists(__DIR__ . $uri)) {
         'jpeg' => 'image/jpeg',
         'png' => 'image/png',
         'gif' => 'image/gif',
+        'webp' => 'image/webp',
         'svg' => 'image/svg+xml',
         'ico' => 'image/x-icon',
         'pdf' => 'application/pdf',

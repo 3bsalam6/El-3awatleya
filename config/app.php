@@ -18,6 +18,7 @@ define('REMEMBER_COOKIE_DAYS', 30);
 // OTP
 define('OTP_LENGTH', 6);
 define('OTP_EXPIRY_MINUTES', 10);
+define('OTP_RESEND_COOLDOWN_SECONDS', 60);
 define('OTP_MAX_ATTEMPTS', 3);
 
 // File uploads

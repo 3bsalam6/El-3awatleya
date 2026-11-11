@@ -87,8 +87,14 @@
                             name="phone" 
                             class="form-control" 
                             placeholder="01xxxxxxxxx"
+                            required
+                            maxlength="11"
+                            inputmode="numeric"
+                            pattern="01[0125][0-9]{8}"
+                            title="رقم الموبايل يجب أن يتكون من 11 رقماً ويبدأ بـ 010 أو 011 أو 012 أو 015"
                             dir="ltr"
                         >
+                        <small class="text-muted" style="font-size: 0.78rem; display: block; margin-top: 4px;">رقم مصري مكون من 11 رقماً يبدأ بـ 010 أو 011 أو 012 أو 015</small>
                     </div>
 
                     <!-- Employer-only Fields -->
@@ -161,7 +167,9 @@
                             required
                             dir="ltr"
                             minlength="6"
+                            maxlength="30"
                         >
+                        <small class="text-muted" style="font-size: 0.78rem; display: block; margin-top: 4px;">من 6 إلى 30 حرفاً</small>
                     </div>
 
                     <div class="form-group">
@@ -175,6 +183,7 @@
                             required
                             dir="ltr"
                             minlength="6"
+                            maxlength="30"
                         >
                     </div>
 

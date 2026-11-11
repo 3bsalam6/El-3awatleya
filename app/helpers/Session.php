@@ -81,6 +81,8 @@ class Session
             'user_id' => $userId,
             'purpose' => $purpose,
             'attempts' => 0,
+            'created_at' => time(),
+            'resend_available_at' => time() + (defined('OTP_RESEND_COOLDOWN_SECONDS') ? OTP_RESEND_COOLDOWN_SECONDS : 60),
             'expires_at' => time() + (OTP_EXPIRY_MINUTES * 60),
         ];
     }
@@ -114,5 +116,14 @@ class Session
     public static function getOTP()
     {
         return $_SESSION['otp'] ?? null;
+    }
+
+    public static function getOTPResendSecondsLeft()
+    {
+        $otp = $_SESSION['otp'] ?? null;
+        if (!$otp || empty($otp['resend_available_at'])) {
+            return 0;
+        }
+        return max(0, (int)$otp['resend_available_at'] - time());
     }
 }

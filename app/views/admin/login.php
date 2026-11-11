@@ -81,9 +81,17 @@
                             <input type="hidden" id="adminOTPFull" name="otp">
                         </div>
 
-                        <div class="otp-timer">
-                            <span id="adminOTPTimer">02:00</span>
-                            <button type="button" class="btn-link" id="adminResendOTP" disabled>ابعت تاني</button>
+                        <div class="otp-validity-note" style="text-align: center; font-size: 0.83rem; color: var(--text-muted); margin-bottom: 10px;">
+                            ⏱️ الكود صالح للاستخدام لمدة <?= OTP_EXPIRY_MINUTES ?> دقائق
+                        </div>
+
+                        <div class="otp-resend-area" style="text-align: center; margin-bottom: 16px;">
+                            <span id="adminResendCountdownNotice" style="font-size: 0.86rem; color: var(--text-muted); display: none;">
+                                إعادة إرسال الكود بعد: <strong id="adminResendTimerCountdown" style="color: var(--accent); font-variant-numeric: tabular-nums;">01:00</strong>
+                            </span>
+                            <button type="button" class="btn-link" id="adminResendOTP" data-resend-seconds="60" style="font-size: 0.88rem; font-weight: 600;">
+                                🔄 ابعت تاني
+                            </button>
                         </div>
 
                         <div class="alert alert-danger" id="adminOTPError" style="display: none;">

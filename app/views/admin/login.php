@@ -70,15 +70,15 @@
                     <form id="adminOTPForm">
                         <div class="form-group">
                             <label>كود التحقق OTP</label>
-                            <div class="otp-inputs" id="adminOTPInputs">
-                                <input type="text" class="otp-digit" maxlength="1" data-index="0" autofocus dir="ltr">
-                                <input type="text" class="otp-digit" maxlength="1" data-index="1" dir="ltr">
-                                <input type="text" class="otp-digit" maxlength="1" data-index="2" dir="ltr">
-                                <input type="text" class="otp-digit" maxlength="1" data-index="3" dir="ltr">
-                                <input type="text" class="otp-digit" maxlength="1" data-index="4" dir="ltr">
-                                <input type="text" class="otp-digit" maxlength="1" data-index="5" dir="ltr">
+                            <div class="otp-inputs" id="adminOTPInputs" dir="ltr">
+                                <input type="text" class="otp-digit" maxlength="1" data-index="0" autofocus dir="ltr" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                                <input type="text" class="otp-digit" maxlength="1" data-index="1" dir="ltr" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                                <input type="text" class="otp-digit" maxlength="1" data-index="2" dir="ltr" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                                <input type="text" class="otp-digit" maxlength="1" data-index="3" dir="ltr" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                                <input type="text" class="otp-digit" maxlength="1" data-index="4" dir="ltr" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+                                <input type="text" class="otp-digit" maxlength="1" data-index="5" dir="ltr" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
                             </div>
-                            <input type="hidden" id="adminOTPFull" name="otp">
+                            <input type="hidden" id="adminOTPFull" name="otp" value="">
                         </div>
 
                         <div class="otp-validity-note" style="text-align: center; font-size: 0.83rem; color: var(--text-muted); margin-bottom: 10px;">

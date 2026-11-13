@@ -39,44 +39,151 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 
+    // Helper to normalize any digits (Arabic, Persian, Western)
+    function normalizeDigits(str) {
+        if (!str) return '';
+        var ar = '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹';
+        var en = '01234567890123456789';
+        var res = '';
+        for (var i = 0; i < str.length; i++) {
+            var idx = ar.indexOf(str[i]);
+            res += (idx !== -1) ? en[idx] : str[i];
+        }
+        return res.replace(/[^0-9]/g, '');
+    }
+
     // ===========================
-    // OTP Input Auto-focus
+    // OTP Input Auto-focus & Interaction
     // ===========================
     var otpContainers = document.querySelectorAll('.otp-inputs');
     otpContainers.forEach(function (container) {
         var digits = container.querySelectorAll('.otp-digit');
-        digits.forEach(function (digit, index) {
-            digit.addEventListener('input', function () {
-                this.value = this.value.replace(/[^0-9]/g, '');
-                if (this.value && index < digits.length - 1) {
-                    digits[index + 1].focus();
+        if (!digits || digits.length === 0) return;
+
+        function updateFilledClasses() {
+            digits.forEach(function (d) {
+                if (d.value) {
+                    d.classList.add('filled');
+                } else {
+                    d.classList.remove('filled');
                 }
+            });
+        }
+
+        digits.forEach(function (digit, index) {
+            // Select content on focus/click so typing overwrites the character directly
+            digit.addEventListener('focus', function () {
+                this.select();
+            });
+
+            digit.addEventListener('click', function () {
+                this.select();
+            });
+
+            // Handle Backspace, Delete, Arrows
+            digit.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace') {
+                    if (this.value) {
+                        this.value = '';
+                        updateFilledClasses();
+                        collectOTP(container, digits);
+                        e.preventDefault();
+                    } else if (index > 0) {
+                        digits[index - 1].focus();
+                        digits[index - 1].value = '';
+                        updateFilledClasses();
+                        collectOTP(container, digits);
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'Delete') {
+                    this.value = '';
+                    updateFilledClasses();
+                    collectOTP(container, digits);
+                    e.preventDefault();
+                } else if (e.key === 'ArrowLeft') {
+                    if (index > 0) {
+                        digits[index - 1].focus();
+                        digits[index - 1].select();
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    if (index < digits.length - 1) {
+                        digits[index + 1].focus();
+                        digits[index + 1].select();
+                        e.preventDefault();
+                    }
+                }
+            });
+
+            // Handle digit input
+            digit.addEventListener('input', function () {
+                var clean = normalizeDigits(this.value);
+
+                // If user typed/pasted more than 1 char directly into cell
+                if (clean.length > 1) {
+                    for (var k = 0; k < clean.length && (index + k) < digits.length; k++) {
+                        digits[index + k].value = clean[k];
+                    }
+                    var targetIdx = Math.min(index + clean.length, digits.length - 1);
+                    digits[targetIdx].focus();
+                    digits[targetIdx].select();
+                } else {
+                    this.value = clean;
+                    if (this.value && index < digits.length - 1) {
+                        digits[index + 1].focus();
+                        digits[index + 1].select();
+                    }
+                }
+
+                updateFilledClasses();
                 collectOTP(container, digits);
             });
 
-            digit.addEventListener('keydown', function (e) {
-                if (e.key === 'Backspace' && !this.value && index > 0) {
-                    digits[index - 1].focus();
-                }
-            });
-
+            // Handle paste
             digit.addEventListener('paste', function (e) {
                 e.preventDefault();
-                var pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
-                for (var i = 0; i < Math.min(pasted.length, digits.length); i++) {
-                    digits[i].value = pasted[i];
+                var clipboard = (e.clipboardData || window.clipboardData);
+                var raw = clipboard ? clipboard.getData('text') : '';
+                var pasted = normalizeDigits(raw);
+
+                if (!pasted) return;
+
+                var startIdx = (pasted.length >= digits.length) ? 0 : index;
+                for (var i = 0; i < digits.length; i++) {
+                    if (i < startIdx) continue;
+                    var charIndex = i - startIdx;
+                    if (charIndex < pasted.length) {
+                        digits[i].value = pasted[charIndex];
+                    }
                 }
-                digits[Math.min(pasted.length, digits.length) - 1].focus();
+
+                var nextIdx = Math.min(startIdx + pasted.length, digits.length - 1);
+                digits[nextIdx].focus();
+                digits[nextIdx].select();
+
+                updateFilledClasses();
                 collectOTP(container, digits);
             });
         });
+
+        // Initialize state
+        updateFilledClasses();
+        collectOTP(container, digits);
     });
 
     function collectOTP(container, digits) {
         var full = '';
-        digits.forEach(function (d) { full += d.value; });
-        var hiddenField = container.parentElement.querySelector('input[type="hidden"]');
-        if (hiddenField) hiddenField.value = full;
+        digits.forEach(function (d) { 
+            full += normalizeDigits(d.value); 
+        });
+        var hiddenField = container.parentElement ? container.parentElement.querySelector('input[type="hidden"]') : null;
+        if (!hiddenField) {
+            hiddenField = document.getElementById('otpFull') || document.getElementById('adminOTPFull');
+        }
+        if (hiddenField) {
+            hiddenField.value = full;
+        }
+        return full;
     }
 
 
@@ -379,23 +486,42 @@ document.addEventListener('DOMContentLoaded', function () {
     if (otpLoginForm) {
         otpLoginForm.addEventListener('submit', function (e) {
             var container = otpLoginForm.querySelector('.otp-inputs');
+            var otpVal = '';
             if (container) {
                 var digits = container.querySelectorAll('.otp-digit');
-                collectOTP(container, digits);
+                otpVal = collectOTP(container, digits);
             }
-            var otpVal = document.getElementById('otpFull') ? document.getElementById('otpFull').value : '';
+            if (!otpVal) {
+                var hidden = document.getElementById('otpFull');
+                otpVal = hidden ? hidden.value.trim() : '';
+            }
+
             if (otpVal.length < 6) {
                 e.preventDefault();
                 var err = document.getElementById('otpError');
                 if (err) {
                     err.style.display = 'flex';
-                    document.getElementById('otpErrorText').textContent = 'ادخل الكود كامل (6 أرقام)';
+                    var errText = document.getElementById('otpErrorText');
+                    if (errText) errText.textContent = 'ادخل الكود كامل (6 أرقام)';
+                }
+                if (container) {
+                    var digits = container.querySelectorAll('.otp-digit');
+                    for (var i = 0; i < digits.length; i++) {
+                        if (!digits[i].value) {
+                            digits[i].focus();
+                            break;
+                        }
+                    }
                 }
                 return false;
             }
+
+            var err = document.getElementById('otpError');
+            if (err) err.style.display = 'none';
+
             var btn = document.getElementById('verifyBtn');
             if (btn) {
-                btn.innerHTML = '<span class="spinner"></span> جاري التحقق...';
+                btn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></span> جاري التحقق...';
             }
         });
     }
@@ -1138,16 +1264,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             }, 1200);
                         }
                     }
-                })
-                .catch(function () {
-                    if (btn) {
-                        btn.innerHTML = 'تغيير الإيميل';
-                        btn.disabled = false;
-                    }
-                    alert('حدث خطأ في الاتصال بالسيرفر');
-                });
-        });
-    }
                 })
                 .catch(function () {
                     if (btn) {

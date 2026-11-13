@@ -513,21 +513,40 @@ img {
 .otp-digit {
     width: 48px;
     height: 56px;
+    padding: 0;
+    margin: 0;
     text-align: center;
     font-family: var(--font-main);
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 700;
+    line-height: 52px;
     border: 2px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--bg-primary);
     color: var(--text-primary);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    caret-color: var(--accent);
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+}
+
+.otp-digit::-webkit-outer-spin-button,
+.otp-digit::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .otp-digit:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(196, 113, 43, 0.15);
+    box-shadow: 0 0 0 3px rgba(196, 113, 43, 0.25);
+    background: rgba(196, 113, 43, 0.05);
+}
+
+.otp-digit.filled {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 .otp-timer {
